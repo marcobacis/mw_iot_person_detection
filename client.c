@@ -1,22 +1,44 @@
-/**
+/**	
  * \file
  *         Client-side application for the person detection project
- * \author
- *         Marco Bacis, Daniele Cattaneo
+ * 
+ * Authors: Marco Bacis, Daniele Cattaneo
  */
 
 #include "contiki.h"
+#include "sys/process.h"
+#include "sys/etimer.h"
+#include "sys/ctimer.h"
+#include "movement.h"
+#include <stdio.h>
 
-#include <stdio.h> /* For printf() */
+
+
+
+static struct ctimer acc_timer;
+
+
 /*---------------------------------------------------------------------------*/
-PROCESS(hello_world_process, "Hello world process");
-AUTOSTART_PROCESSES(&hello_world_process);
+PROCESS(client_process, "Hello world process");
+AUTOSTART_PROCESSES(&client_process);
 /*---------------------------------------------------------------------------*/
-PROCESS_THREAD(hello_world_process, ev, data)
+PROCESS_THREAD(client_process, ev, data)
 {
+
   PROCESS_BEGIN();
 
   printf("Hello, world\n");
+  
+  init_movement_reading(NULL);
+  
+  while(1) {
+    PROCESS_YIELD();
+    
+    if(movement_ready(ev, data)) {
+      printf("Read movement of %d Gs\n", get_movement());
+      ctimer_set(&acc_timer, MOVEMENT_PERIOD, init_movement_reading, NULL);
+    }
+  }
   
   PROCESS_END();
 }
