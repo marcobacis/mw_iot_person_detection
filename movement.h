@@ -1,6 +1,7 @@
 #include "contiki.h"
 #include "sys/process.h"
 #include <math.h>
+#include <stdio.h>
 
 /*
 * Tells if there is a movement reading ready.

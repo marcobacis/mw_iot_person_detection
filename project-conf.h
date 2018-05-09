@@ -12,13 +12,15 @@
 #define T 10
 
 //Movement reading period
-#define MOVEMENT_PERIOD (2*CLOCK_SECOND)
+#define MOVEMENT_PERIOD (2 * CLOCK_SECOND)
+
+#define MOVEMENT_FILE "acceleration.csv"
 
 //Period to send mqtt messages when connected & not moving (seconds)
-#define K 10
+#define K (10 * CLOCK_SECOND)
 
 //Time to wait before checking if the person is moving (seconds)
-#define G 4
+#define G (4 * CLOCK_SECOND)
 
 //MQTT-specific defines
 
