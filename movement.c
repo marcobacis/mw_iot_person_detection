@@ -28,9 +28,9 @@ int get_movement() {
 
 #else
 
-#define SENSOR_STARTUP_DELAY      5
+#include MOVEMENT_FILE
 
-FILE *mov_file;
+#define SENSOR_STARTUP_DELAY      5
 
 process_event_t fakesens_event;
 
@@ -40,29 +40,21 @@ int movement_ready(process_event_t ev, process_data_t data) {
 
 void init_movement_reading(void *not_used) {
   
-  static int opened = 0;
-  
-  if(!opened) {
-    mov_file = fopen(MOVEMENT_FILE, "r");
-    opened = 1;
-  }
-  
   process_post(PROCESS_BROADCAST, fakesens_event, NULL);
 }
 
 int get_movement() {
   
-  int accx = 0;
-  int accy = 0;
-  int accz = 0;
+  static int mov_idx = 0;
 
-  fscanf(mov_file, "%d,%d,%d\n", &accx, &accy, &accz);
-  
-  //reopen file if the end is reached
-  if(feof(mov_file)) {
-    fclose(mov_file);
-    mov_file = fopen(MOVEMENT_FILE, "r");
-    fscanf(mov_file, "%d,%d,%d\n", &accx, &accy, &accz);
+  int accx = movements[mov_idx][0];
+  int accy = movements[mov_idx][1];
+  int accz = movements[mov_idx][2];
+
+  if(mov_idx < MOVEMENTS-1) {
+    mov_idx++;
+  } else {
+    mov_idx = 0;
   }
     
 

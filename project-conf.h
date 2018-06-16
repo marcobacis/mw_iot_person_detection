@@ -5,6 +5,8 @@
 /* Disable PROP_MODE */
 #define CC13XX_CONF_PROP_MODE 0
 
+// Enables TCP
+#define UIP_CONF_TCP 1
 
 // Project-related defines
 
@@ -14,7 +16,7 @@
 //Movement reading period
 #define MOVEMENT_PERIOD (2 * CLOCK_SECOND)
 
-#define MOVEMENT_FILE "acceleration.csv"
+#define MOVEMENT_FILE "acceleration.h"
 
 //Period to send mqtt messages when connected & not moving (seconds)
 #define K (10 * CLOCK_SECOND)
@@ -25,7 +27,16 @@
 //MQTT-specific defines
 
 #define MQTT_PUBLISH_TOPIC_PREFIX   "iot/position/"
-#define MQTT_BROKER_IP_ADDR "fd00::1"
+#define MQTT_BROKER_IP_ADDR "aaaa::1"
+
+#define MQTT_DEMO_STATUS_LED  LEDS_GREEN
+#define MQTT_DEMO_TRIGGER_LED LEDS_RED
+#define MQTT_DEMO_PUBLISH_TRIGGER &button_left_sensor
+
+#define MQTT_DEMO_PUBLISH_TOPIC   "iot/cc26xx/launchpad/json"
+#define MQTT_DEMO_SUB_TOPIC       "iot/cc26xx/launchpad/json"
+
+#define MQTT_DEMO_BROKER_IP_ADDR "aaaa::1"
 
 #define RECONNECT_ATTEMPTS         RETRY_FOREVER
 #define CONNECTION_STABLE_TIME     (CLOCK_SECOND * 5)
