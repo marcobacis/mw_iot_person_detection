@@ -20,7 +20,7 @@
  * Publish to a local MQTT broker (e.g. mosquitto) running on
  * the node that hosts your border router
  */
-static const char *broker_ip = MQTT_DEMO_BROKER_IP_ADDR;
+static const char *broker_ip = MQTT_BROKER_IP_ADDR;
 #define DEFAULT_ORG_ID              "mqtt-demo"
 /*---------------------------------------------------------------------------*/
 /*
@@ -50,16 +50,7 @@ static struct timer connection_life;
 static uint8_t connect_attempt;
 /*---------------------------------------------------------------------------*/
 /* Various states */
-static uint8_t state;
-#define STATE_INIT            0
-#define STATE_REGISTERED      1
-#define STATE_CONNECTING      2
-#define STATE_CONNECTED       3
-#define STATE_PUBLISHING      4
-#define STATE_DISCONNECTED    5
-#define STATE_NEWCONFIG       6
-#define STATE_CONFIG_ERROR 0xFE
-#define STATE_ERROR        0xFF
+
 /*---------------------------------------------------------------------------*/
 #define CONFIG_ORG_ID_LEN        32
 #define CONFIG_TYPE_ID_LEN       32
@@ -113,9 +104,7 @@ static char sub_topic[BUFFER_SIZE];
 static struct mqtt_connection conn;
 static char app_buffer[APP_BUFFER_SIZE];
 /*---------------------------------------------------------------------------*/
-static struct mqtt_message *msg_ptr = 0;
 static struct etimer publish_periodic_timer;
-static struct ctimer ct;
 static char *buf_ptr;
 static uint16_t seq_nr_value = 0;
 /*---------------------------------------------------------------------------*/
@@ -147,26 +136,6 @@ ipaddr_sprintf(char *buf, uint8_t buf_len, const uip_ipaddr_t *addr)
 }
 /*---------------------------------------------------------------------------*/
 static void
-publish_led_off(void *d)
-{
-  leds_off(MQTT_DEMO_STATUS_LED);
-}
-/*---------------------------------------------------------------------------*/
-static void
-pub_handler(const char *topic, uint16_t topic_len, const uint8_t *chunk,
-            uint16_t chunk_len)
-{
-  LOG_INFO("Pub handler: topic='%s' (len=%u), chunk_len=%u\n", topic, topic_len,
-      chunk_len);
-
-  /* If the format != json, ignore */
-  if(strncmp(&topic[topic_len - 4], "json", 4) != 0) {
-    LOG_ERR("Incorrect format\n");
-    return;
-  }
-}
-/*---------------------------------------------------------------------------*/
-static void
 mqtt_event(struct mqtt_connection *m, mqtt_event_t event, void *data)
 {
   switch(event) {
@@ -183,29 +152,6 @@ mqtt_event(struct mqtt_connection *m, mqtt_event_t event, void *data)
     process_poll(&client_process);
     break;
   }
-  case MQTT_EVENT_PUBLISH: {
-    msg_ptr = data;
-
-    /* Implement first_flag in publish message? */
-    if(msg_ptr->first_chunk) {
-      msg_ptr->first_chunk = 0;
-      LOG_INFO("Application received a publish on topic '%s'; payload "
-          "size is %i bytes\n",
-          msg_ptr->topic, msg_ptr->payload_length);
-    }
-
-    pub_handler(msg_ptr->topic, strlen(msg_ptr->topic), msg_ptr->payload_chunk,
-                msg_ptr->payload_length);
-    break;
-  }
-  case MQTT_EVENT_SUBACK: {
-    LOG_INFO("Application is subscribed to topic successfully\n");
-    break;
-  }
-  case MQTT_EVENT_UNSUBACK: {
-    LOG_INFO("Application is unsubscribed to topic successfully\n");
-    break;
-  }
   case MQTT_EVENT_PUBACK: {
     LOG_INFO("Publishing complete\n");
     break;
@@ -219,7 +165,14 @@ mqtt_event(struct mqtt_connection *m, mqtt_event_t event, void *data)
 static int
 construct_pub_topic(void)
 {
-  int len = snprintf(pub_topic, BUFFER_SIZE, MQTT_DEMO_PUBLISH_TOPIC);
+  rpl_dag_t *dag = &curr_instance.dag;
+  
+  //Should represent the border-router address
+  char rootid[BUFFER_SIZE];
+  
+  ipaddr_sprintf(rootid, BUFFER_SIZE, &dag->dag_id);
+  
+  int len = snprintf(pub_topic, BUFFER_SIZE, "%s%s", MQTT_PUBLISH_TOPIC_PREFIX, rootid);
 
   /* len < 0: Error. Len >= BUFFER_SIZE: Buffer too small */
   if(len < 0 || len >= BUFFER_SIZE) {
@@ -229,20 +182,7 @@ construct_pub_topic(void)
 
   return 1;
 }
-/*---------------------------------------------------------------------------*/
-static int
-construct_sub_topic(void)
-{
-  int len = snprintf(sub_topic, BUFFER_SIZE, MQTT_DEMO_SUB_TOPIC);
 
-  /* len < 0: Error. Len >= BUFFER_SIZE: Buffer too small */
-  if(len < 0 || len >= BUFFER_SIZE) {
-    LOG_INFO("Sub topic: %d, buffer %d\n", len, BUFFER_SIZE);
-    return 0;
-  }
-
-  return 1;
-}
 /*---------------------------------------------------------------------------*/
 static int
 construct_client_id(void)
@@ -271,12 +211,6 @@ update_mqtt_config(void)
     return;
   }
 
-  if(construct_sub_topic() == 0) {
-    /* Fatal error. Topic larger than the buffer */
-    state = STATE_CONFIG_ERROR;
-    return;
-  }
-
   if(construct_pub_topic() == 0) {
     /* Fatal error. Topic larger than the buffer */
     state = STATE_CONFIG_ERROR;
@@ -285,8 +219,6 @@ update_mqtt_config(void)
 
   /* Reset the counter */
   seq_nr_value = 0;
-
-  state = STATE_INIT;
 
   /*
    * Schedule next timer event ASAP
@@ -300,6 +232,23 @@ update_mqtt_config(void)
 
   return;
 }
+
+static void init_mqtt()
+{
+  /* If we have just been configured register MQTT connection */
+  mqtt_register(&conn, &client_process, client_id, mqtt_event,
+                MAX_TCP_SEGMENT_SIZE);
+
+  mqtt_set_username_password(&conn, "use-token-auth",
+                                 conf.auth_token);
+
+  /* _register() will set auto_reconnect. We don't want that. */
+  conn.auto_reconnect = 0;
+  connect_attempt = 1;
+
+  LOG_INFO("Init\n");
+}
+
 /*---------------------------------------------------------------------------*/
 static void
 init_mqtt_config()
@@ -341,38 +290,7 @@ publish(void)
 
   buf_ptr = app_buffer;
 
-  len = snprintf(buf_ptr, remaining,
-                 "{"
-                 "\"d\":{"
-                 "\"myName\":\"%s\","
-                 "\"Seq #\":%d,"
-                 "\"Uptime (sec)\":%lu,",
-                 "cc26xx", seq_nr_value,clock_seconds()); 
-
-  if(len < 0 || len >= remaining) {
-    LOG_ERR("Buffer too short. Have %d, need %d + \\0\n", remaining, len);
-    return;
-  }
-
-  remaining -= len;
-  buf_ptr += len;
-
-  /* Put our Default route's string representation in a buffer */
-  char def_rt_str[64];
-  memset(def_rt_str, 0, sizeof(def_rt_str));
-  ipaddr_sprintf(def_rt_str, sizeof(def_rt_str), uip_ds6_defrt_choose());
-
-  len = snprintf(buf_ptr, remaining, ",\"Def Route\":\"%s\"",
-                 def_rt_str);
-
-  if(len < 0 || len >= remaining) {
-    LOG_ERR("Buffer too short. Have %d, need %d + \\0\n", remaining, len);
-    return;
-  }
-  remaining -= len;
-  buf_ptr += len;
-
-  len = snprintf(buf_ptr, remaining, "}}");
+  len = snprintf(buf_ptr, remaining, "{\"id\":\"%s\"}", client_id); 
 
   if(len < 0 || len >= remaining) {
     LOG_ERR("Buffer too short. Have %d, need %d + \\0\n", remaining, len);
@@ -395,126 +313,6 @@ connect_to_broker(void)
   state = STATE_CONNECTING;
 }
 /*---------------------------------------------------------------------------*/
-static void
-state_machine(void)
-{
-  switch(state) {
-  case STATE_INIT:
-    /* If we have just been configured register MQTT connection */
-    mqtt_register(&conn, &client_process, client_id, mqtt_event,
-                  MAX_TCP_SEGMENT_SIZE);
 
-    mqtt_set_username_password(&conn, "use-token-auth",
-                                   conf.auth_token);
-
-    /* _register() will set auto_reconnect. We don't want that. */
-    conn.auto_reconnect = 0;
-    connect_attempt = 1;
-
-    state = STATE_REGISTERED;
-    LOG_INFO("Init\n");
-    /* Continue */
-  case STATE_REGISTERED:
-    if(uip_ds6_get_global(ADDR_PREFERRED) != NULL) {
-      /* Registered and with a global IPv6 address, connect! */
-      LOG_INFO("Joined network! Connect attempt %u\n", connect_attempt);
-      connect_to_broker();
-    } else {
-      leds_on(MQTT_DEMO_STATUS_LED);
-      ctimer_set(&ct, NO_NET_LED_DURATION, publish_led_off, NULL);
-    }
-    etimer_set(&publish_periodic_timer, NET_CONNECT_PERIODIC);
-    return;
-    break;
-  case STATE_CONNECTING:
-    leds_on(MQTT_DEMO_STATUS_LED);
-    ctimer_set(&ct, CONNECTING_LED_DURATION, publish_led_off, NULL);
-    /* Not connected yet. Wait */
-    LOG_INFO("Connecting: retry %u...\n", connect_attempt);
-    break;
-  case STATE_CONNECTED:
-  case STATE_PUBLISHING:
-    /* If the timer expired, the connection is stable. */
-    if(timer_expired(&connection_life)) {
-      /*
-       * Intentionally using 0 here instead of 1: We want RECONNECT_ATTEMPTS
-       * attempts if we disconnect after a successful connect
-       */
-      connect_attempt = 0;
-    }
-
-    if(mqtt_ready(&conn) && conn.out_buffer_sent) {
-      /* Connected. Publish */
-      if(state == STATE_CONNECTED) {
-        subscribe();
-        state = STATE_PUBLISHING;
-      } else {
-        leds_on(MQTT_DEMO_STATUS_LED);
-        ctimer_set(&ct, PUBLISH_LED_ON_DURATION, publish_led_off, NULL);
-        publish();
-      }
-      etimer_set(&publish_periodic_timer, conf.pub_interval);
-
-      LOG_INFO("Publishing\n");
-      /* Return here so we don't end up rescheduling the timer */
-      return;
-    } else {
-      /*
-       * Our publish timer fired, but some MQTT packet is already in flight
-       * (either not sent at all, or sent but not fully ACKd).
-       *
-       * This can mean that we have lost connectivity to our broker or that
-       * simply there is some network delay. In both cases, we refuse to
-       * trigger a new message and we wait for TCP to either ACK the entire
-       * packet after retries, or to timeout and notify us.
-       */
-      LOG_INFO("Publishing... (MQTT state=%d, q=%u)\n", conn.state,
-          conn.out_queue_full);
-    }
-    break;
-  case STATE_DISCONNECTED:
-    LOG_INFO("Disconnected\n");
-    if(connect_attempt < RECONNECT_ATTEMPTS ||
-       RECONNECT_ATTEMPTS == RETRY_FOREVER) {
-      /* Disconnect and backoff */
-      clock_time_t interval;
-      mqtt_disconnect(&conn);
-      connect_attempt++;
-
-      interval = connect_attempt < 3 ? RECONNECT_INTERVAL << connect_attempt :
-        RECONNECT_INTERVAL << 3;
-
-      LOG_INFO("Disconnected: attempt %u in %lu ticks\n", connect_attempt, interval);
-
-      etimer_set(&publish_periodic_timer, interval);
-
-      state = STATE_REGISTERED;
-      return;
-    } else {
-      /* Max reconnect attempts reached. Enter error state */
-      state = STATE_ERROR;
-      LOG_ERR("Aborting connection after %u attempts\n", connect_attempt - 1);
-    }
-    break;
-  case STATE_CONFIG_ERROR:
-    /* Idle away. The only way out is a new config */
-    LOG_ERR("Bad configuration.\n");
-    return;
-  case STATE_ERROR:
-  default:
-    leds_on(MQTT_DEMO_STATUS_LED);
-    /*
-     * 'default' should never happen.
-     *
-     * If we enter here it's because of some error. Stop timers. The only thing
-     * that can bring us out is a new config event
-     */
-    LOG_INFO("Default case: State=0x%02x\n", state);
-    return;
-  }
-
-  /* If we didn't return so far, reschedule ourselves */
-  etimer_set(&publish_periodic_timer, STATE_MACHINE_PERIODIC);
-}
 /*---------------------------------------------------------------------------*/
 

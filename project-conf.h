@@ -14,15 +14,15 @@
 #define T 10
 
 //Movement reading period
-#define MOVEMENT_PERIOD (2 * CLOCK_SECOND)
+#define MOVEMENT_PERIOD (4 * CLOCK_SECOND)
 
 #define MOVEMENT_FILE "acceleration.h"
 
 //Period to send mqtt messages when connected & not moving (seconds)
-#define K (10 * CLOCK_SECOND)
+#define K (5 * CLOCK_SECOND)
 
 //Time to wait before checking if the person is moving (seconds)
-#define G (4 * CLOCK_SECOND)
+#define G (10 * CLOCK_SECOND)
 
 //MQTT-specific defines
 
@@ -32,11 +32,6 @@
 #define MQTT_DEMO_STATUS_LED  LEDS_GREEN
 #define MQTT_DEMO_TRIGGER_LED LEDS_RED
 #define MQTT_DEMO_PUBLISH_TRIGGER &button_left_sensor
-
-#define MQTT_DEMO_PUBLISH_TOPIC   "iot/cc26xx/launchpad/json"
-#define MQTT_DEMO_SUB_TOPIC       "iot/cc26xx/launchpad/json"
-
-#define MQTT_DEMO_BROKER_IP_ADDR "aaaa::1"
 
 #define RECONNECT_ATTEMPTS         RETRY_FOREVER
 #define CONNECTION_STABLE_TIME     (CLOCK_SECOND * 5)
