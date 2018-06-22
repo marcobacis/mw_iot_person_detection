@@ -90,15 +90,10 @@ state_machine(void)
 
       if(mqtt_ready(&conn) && conn.out_buffer_sent) {
         /* Connected. Publish */
-        if(state == STATE_CONNECTED) {
-          subscribe();
-          state = STATE_PUBLISHING;
-        } else {
-          publish();
-        }
+        publish();
         etimer_set(&publish_periodic_timer, conf.pub_interval);
 
-        LOG_INFO("Publishing\n");
+        //LOG_INFO("Publishing\n");
         /* Return here so we don't end up rescheduling the timer */
         return;
       } else {
@@ -202,6 +197,7 @@ PROCESS_THREAD(client_process, ev, data)
       }
       else if(state == STATE_MOVING && mov < T) {
         LOG_INFO("The user stopped moving.\n");
+        update_mqtt_config();
         state = STATE_INIT;
         ctimer_set(&acc_timer, G, init_movement_reading, NULL);
       }

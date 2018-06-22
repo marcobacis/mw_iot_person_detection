@@ -21,31 +21,20 @@
  * the node that hosts your border router
  */
 static const char *broker_ip = MQTT_BROKER_IP_ADDR;
-#define DEFAULT_ORG_ID              "mqtt-demo"
+#define DEFAULT_ORG_ID              "demo"
 /*---------------------------------------------------------------------------*/
 /*
  * A timeout used when waiting for something to happen (e.g. to connect or to
  * disconnect)
  */
 #define STATE_MACHINE_PERIODIC     (CLOCK_SECOND >> 1)
-/*---------------------------------------------------------------------------*/
-/* Provide visible feedback via LEDS during various states */
-/* When connecting to broker */
-#define CONNECTING_LED_DURATION    (CLOCK_SECOND >> 2)
 
-/* Each time we try to publish */
-#define PUBLISH_LED_ON_DURATION    (CLOCK_SECOND)
 /*---------------------------------------------------------------------------*/
 /* Connections and reconnections */
 #define RETRY_FOREVER              0xFF
 #define RECONNECT_INTERVAL         (CLOCK_SECOND * 2)
-/*---------------------------------------------------------------------------*/
-/*
- * Number of times to try reconnecting to the broker.
- * Can be a limited number (e.g. 3, 10 etc) or can be set to RETRY_FOREVER
- */
-#define RECONNECT_ATTEMPTS         RETRY_FOREVER
-#define CONNECTION_STABLE_TIME     (CLOCK_SECOND * 5)
+
+
 static struct timer connection_life;
 static uint8_t connect_attempt;
 /*---------------------------------------------------------------------------*/
@@ -91,10 +80,10 @@ typedef struct mqtt_client_config {
  *
  * We also need space for the null termination
  */
-#define BUFFER_SIZE 64
-static char client_id[BUFFER_SIZE];
-static char pub_topic[BUFFER_SIZE];
-static char sub_topic[BUFFER_SIZE];
+#define BUFFER_SIZE 128
+static char client_id[MQTT_CLIENT_ID_MAX_LEN];
+static char pub_topic[MQTT_MAX_TOPIC_LENGTH];
+//static char sub_topic[BUFFER_SIZE];
 /*---------------------------------------------------------------------------*/
 /*
  * The main MQTT buffers.
@@ -168,17 +157,19 @@ construct_pub_topic(void)
   rpl_dag_t *dag = &curr_instance.dag;
   
   //Should represent the border-router address
-  char rootid[BUFFER_SIZE];
+  char rootid[MQTT_MAX_TOPIC_LENGTH];
   
-  ipaddr_sprintf(rootid, BUFFER_SIZE, &dag->dag_id);
+  ipaddr_sprintf(rootid, MQTT_MAX_TOPIC_LENGTH, &dag->dag_id);
   
-  int len = snprintf(pub_topic, BUFFER_SIZE, "%s%s", MQTT_PUBLISH_TOPIC_PREFIX, rootid);
+  int len = snprintf(pub_topic, MQTT_MAX_TOPIC_LENGTH, "%s/%s", MQTT_PUBLISH_TOPIC_PREFIX, rootid);
 
   /* len < 0: Error. Len >= BUFFER_SIZE: Buffer too small */
-  if(len < 0 || len >= BUFFER_SIZE) {
-    LOG_ERR("Pub topic: %d, buffer %d\n", len, BUFFER_SIZE);
+  if(len < 0 || len >= MQTT_MAX_TOPIC_LENGTH) {
+    LOG_ERR("Pub topic: %d, buffer %d\n", len, MQTT_MAX_TOPIC_LENGTH);
     return 0;
   }
+
+  LOG_INFO("Topic set successfully!! The topic is:\"%s\"\n", pub_topic);
 
   return 1;
 }
@@ -187,15 +178,14 @@ construct_pub_topic(void)
 static int
 construct_client_id(void)
 {
-  int len = snprintf(client_id, BUFFER_SIZE, "d:%s:%s:%02x%02x%02x%02x%02x%02x",
-                     conf.org_id, conf.type_id,
+  int len = snprintf(client_id, MQTT_CLIENT_ID_MAX_LEN, "%02x%02x%02x%02x%02x%02x",
                      linkaddr_node_addr.u8[0], linkaddr_node_addr.u8[1],
                      linkaddr_node_addr.u8[2], linkaddr_node_addr.u8[5],
                      linkaddr_node_addr.u8[6], linkaddr_node_addr.u8[7]);
 
   /* len < 0: Error. Len >= BUFFER_SIZE: Buffer too small */
-  if(len < 0 || len >= BUFFER_SIZE) {
-    LOG_INFO("Client ID: %d, Buffer %d\n", len, BUFFER_SIZE);
+  if(len < 0 || len >= MQTT_CLIENT_ID_MAX_LEN) {
+    LOG_INFO("Client ID: %d, Buffer %d\n", len, MQTT_CLIENT_ID_MAX_LEN);
     return 0;
   }
 
@@ -266,18 +256,18 @@ init_mqtt_config()
   conf.pub_interval = DEFAULT_PUBLISH_INTERVAL;
 }
 /*---------------------------------------------------------------------------*/
-static void
+/*static void
 subscribe(void)
 {
   mqtt_status_t status;
 
-  status = mqtt_subscribe(&conn, NULL, sub_topic, MQTT_QOS_LEVEL_0);
+  status = mqtt_subscribe(&conn, NULL, pub_topic, MQTT_QOS_LEVEL_0);
 
   LOG_INFO("Subscribing\n");
   if(status == MQTT_STATUS_OUT_QUEUE_FULL) {
     LOG_INFO("Tried to subscribe but command queue was full!\n");
   }
-}
+}*/
 /*---------------------------------------------------------------------------*/
 static void
 publish(void)
@@ -290,17 +280,20 @@ publish(void)
 
   buf_ptr = app_buffer;
 
-  len = snprintf(buf_ptr, remaining, "{\"id\":\"%s\"}", client_id); 
+  len = snprintf(buf_ptr, remaining, "{\"client_id\":\"%s\"}", client_id); 
 
   if(len < 0 || len >= remaining) {
     LOG_ERR("Buffer too short. Have %d, need %d + \\0\n", remaining, len);
     return;
   }
 
-  mqtt_publish(&conn, NULL, pub_topic, (uint8_t *)app_buffer,
-               strlen(app_buffer), MQTT_QOS_LEVEL_0, MQTT_RETAIN_OFF);
+  mqtt_status_t res = mqtt_publish(&conn, NULL, pub_topic, (uint8_t *)app_buffer,
+               strlen(app_buffer), MQTT_QOS_LEVEL_1, MQTT_RETAIN_OFF);
 
-  LOG_INFO("Publish sent out!\n");
+  if(res == MQTT_STATUS_OK)
+    LOG_INFO("Publish sent out!\nMessage = %s\n", app_buffer);
+  else
+    LOG_ERR("Error in publishing... %d\n", res);
 }
 /*---------------------------------------------------------------------------*/
 static void
