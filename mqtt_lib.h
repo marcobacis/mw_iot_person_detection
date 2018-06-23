@@ -14,6 +14,7 @@
 #define LOG_MODULE "MQTT-DEMO"
 #define LOG_LEVEL LOG_LEVEL_INFO
 
+#include <time.h>
 #include <string.h>
 /*---------------------------------------------------------------------------*/
 /*
@@ -56,7 +57,6 @@ static uint8_t connect_attempt;
 #define DEFAULT_AUTH_TOKEN          "AUTHZ"
 #define DEFAULT_SUBSCRIBE_CMD_TYPE  "+"
 #define DEFAULT_BROKER_PORT         1883
-#define DEFAULT_PUBLISH_INTERVAL    (60 * CLOCK_SECOND)
 #define DEFAULT_KEEP_ALIVE_TIMER    60
 /**
  * \brief Data structure declaration for the MQTT client configuration
@@ -83,7 +83,9 @@ typedef struct mqtt_client_config {
 #define BUFFER_SIZE 128
 static char client_id[MQTT_CLIENT_ID_MAX_LEN];
 static char pub_topic[MQTT_MAX_TOPIC_LENGTH];
-//static char sub_topic[BUFFER_SIZE];
+//Should represent the border-router address
+static char root_id[MQTT_MAX_TOPIC_LENGTH];
+
 /*---------------------------------------------------------------------------*/
 /*
  * The main MQTT buffers.
@@ -124,44 +126,14 @@ ipaddr_sprintf(char *buf, uint8_t buf_len, const uip_ipaddr_t *addr)
   return len;
 }
 /*---------------------------------------------------------------------------*/
-static void
-mqtt_event(struct mqtt_connection *m, mqtt_event_t event, void *data)
-{
-  switch(event) {
-  case MQTT_EVENT_CONNECTED: {
-    LOG_INFO("Application has a MQTT connection!\n");
-    timer_set(&connection_life, CONNECTION_STABLE_TIME);
-    state = STATE_CONNECTED;
-    break;
-  }
-  case MQTT_EVENT_DISCONNECTED: {
-    LOG_INFO("MQTT Disconnect: reason %u\n", *((mqtt_event_t *)data));
-
-    state = STATE_DISCONNECTED;
-    process_poll(&client_process);
-    break;
-  }
-  case MQTT_EVENT_PUBACK: {
-    LOG_INFO("Publishing complete\n");
-    break;
-  }
-  default:
-    LOG_WARN("Application got a unhandled MQTT event: %i\n", event);
-    break;
-  }
-}
-/*---------------------------------------------------------------------------*/
 static int
 construct_pub_topic(void)
 {
   rpl_dag_t *dag = &curr_instance.dag;
   
-  //Should represent the border-router address
-  char rootid[MQTT_MAX_TOPIC_LENGTH];
+  ipaddr_sprintf(root_id, MQTT_MAX_TOPIC_LENGTH, &dag->dag_id);
   
-  ipaddr_sprintf(rootid, MQTT_MAX_TOPIC_LENGTH, &dag->dag_id);
-  
-  int len = snprintf(pub_topic, MQTT_MAX_TOPIC_LENGTH, "%s/%s", MQTT_PUBLISH_TOPIC_PREFIX, rootid);
+  int len = snprintf(pub_topic, MQTT_MAX_TOPIC_LENGTH, "%s/%s", MQTT_PUBLISH_TOPIC_PREFIX, root_id);
 
   /* len < 0: Error. Len >= BUFFER_SIZE: Buffer too small */
   if(len < 0 || len >= MQTT_MAX_TOPIC_LENGTH) {
@@ -223,6 +195,32 @@ update_mqtt_config(void)
   return;
 }
 
+static void
+mqtt_event(struct mqtt_connection *m, mqtt_event_t event, void *data)
+{
+  switch(event) {
+  case MQTT_EVENT_CONNECTED: {
+    LOG_INFO("Application has a MQTT connection!\n");
+    timer_set(&connection_life, CONNECTION_STABLE_TIME);
+    state = STATE_CONNECTED;
+    break;
+  }
+  case MQTT_EVENT_DISCONNECTED: {
+    LOG_INFO("MQTT Disconnect: reason %u\n", *((mqtt_event_t *)data));
+    state = STATE_DISCONNECTED;
+    process_poll(&client_process);
+    break;
+  }
+  case MQTT_EVENT_PUBACK: {
+    LOG_INFO("Publishing complete\n");
+    break;
+  }
+  default:
+    LOG_WARN("Application got a unhandled MQTT event: %i\n", event);
+    break;
+  }
+}
+
 static void init_mqtt()
 {
   /* If we have just been configured register MQTT connection */
@@ -253,22 +251,9 @@ init_mqtt_config()
   memcpy(conf.cmd_type, DEFAULT_SUBSCRIBE_CMD_TYPE, 1);
 
   conf.broker_port = DEFAULT_BROKER_PORT;
-  conf.pub_interval = DEFAULT_PUBLISH_INTERVAL;
+  conf.pub_interval = K; //defined in project_conf
 }
-/*---------------------------------------------------------------------------*/
-/*static void
-subscribe(void)
-{
-  mqtt_status_t status;
 
-  status = mqtt_subscribe(&conn, NULL, pub_topic, MQTT_QOS_LEVEL_0);
-
-  LOG_INFO("Subscribing\n");
-  if(status == MQTT_STATUS_OUT_QUEUE_FULL) {
-    LOG_INFO("Tried to subscribe but command queue was full!\n");
-  }
-}*/
-/*---------------------------------------------------------------------------*/
 static void
 publish(void)
 {
@@ -276,11 +261,14 @@ publish(void)
   int len;
   int remaining = APP_BUFFER_SIZE;
 
+  time_t timestamp;
+  time(&timestamp);
+
   seq_nr_value++;
 
   buf_ptr = app_buffer;
 
-  len = snprintf(buf_ptr, remaining, "{\"client_id\":\"%s\"}", client_id); 
+  len = snprintf(buf_ptr, remaining, "{\"client_id\":\"%s\", \"room_id\":\"%s\", \"time\":\"%ld\"}", client_id, root_id, timestamp); 
 
   if(len < 0 || len >= remaining) {
     LOG_ERR("Buffer too short. Have %d, need %d + \\0\n", remaining, len);

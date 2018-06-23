@@ -29,7 +29,7 @@
 #define MQTT_PUBLISH_TOPIC_PREFIX   "iot/position/"
 #define MQTT_BROKER_IP_ADDR "aaaa::1"
 
-#define RECONNECT_ATTEMPTS         RETRY_FOREVER
+#define RECONNECT_ATTEMPTS         2
 #define CONNECTION_STABLE_TIME     (CLOCK_SECOND * 5)
 
 

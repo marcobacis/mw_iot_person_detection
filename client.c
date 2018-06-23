@@ -73,11 +73,13 @@ state_machine(void)
       break;
 
     case STATE_CONNECTING:
-      /* Not connected yet. Wait */
       LOG_INFO("Connecting: retry %u...\n", connect_attempt);
       break;
 
     case STATE_CONNECTED:
+      update_mqtt_config();
+
+
     case STATE_PUBLISHING:
       /* If the timer expired, the connection is stable. */
       if(timer_expired(&connection_life)) {
@@ -88,6 +90,7 @@ state_machine(void)
         connect_attempt = 0;
       }
 
+      LOG_INFO("Should publish\n");
       if(mqtt_ready(&conn) && conn.out_buffer_sent) {
         /* Connected. Publish */
         publish();
@@ -197,7 +200,6 @@ PROCESS_THREAD(client_process, ev, data)
       }
       else if(state == STATE_MOVING && mov < T) {
         LOG_INFO("The user stopped moving.\n");
-        update_mqtt_config();
         state = STATE_INIT;
         ctimer_set(&acc_timer, G, init_movement_reading, NULL);
       }
@@ -210,7 +212,6 @@ PROCESS_THREAD(client_process, ev, data)
     }
 
     if (ev == PROCESS_EVENT_TIMER && data == &publish_periodic_timer) {
-      LOG_INFO("Timer event\n");
       state_machine();
     }
   }
