@@ -5,8 +5,17 @@
 /* Disable PROP_MODE */
 #define CC13XX_CONF_PROP_MODE 0
 
+/* Enables energest for energy consumption time logging (only software) */
+//#define ENERGEST_CONF_ON 1
+#define ENERGEST_CONF_CURRENT_TIME clock_time
+#define ENERGEST_CONF_TIME_T clock_time_t
+#define ENERGEST_CONF_SECOND CLOCK_SECOND
+#define ENERGEST_LOG_DELAY 60 * CLOCK_SECOND
+
 // Enables TCP
 #define UIP_CONF_TCP 1
+
+#define RPL_CONF_LEAF_ONLY 1
 
 // Project-related defines
 
@@ -27,12 +36,19 @@
 //MQTT-specific defines
 
 #define MQTT_PUBLISH_TOPIC_PREFIX   "iot/position/"
-#define MQTT_BROKER_IP_ADDR "aaaa::1"
+#define MQTT_DEFAULT_BROKER_IP_ADDR "aaaa::1"
 
 #define RECONNECT_ATTEMPTS         2
 #define CONNECTION_STABLE_TIME     (CLOCK_SECOND * 5)
 
-
+// Logging defines
+/*#define LOG_CONF_LEVEL_IPV6                        LOG_LEVEL_INFO
+#define LOG_CONF_LEVEL_RPL                         LOG_LEVEL_INFO
+#define LOG_CONF_LEVEL_6LOWPAN                     LOG_LEVEL_INFO
+#define LOG_CONF_LEVEL_TCPIP                       LOG_LEVEL_WARN
+#define LOG_CONF_LEVEL_MAC                         LOG_LEVEL_DBG
+#define LOG_CONF_LEVEL_FRAMER                      LOG_LEVEL_DBG
+*/
 /*---------------------------------------------------------------------------*/
 #endif /* PROJECT_CONF_H_ */
 /*---------------------------------------------------------------------------*/
