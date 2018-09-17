@@ -1,7 +1,12 @@
-#define MOVEMENTS 10
+#define MOVEMENTS 15
 
 int movements[MOVEMENTS][3] = {
 	{4, 4, 4},
+	{3, 3, 5},
+	{4, 4, 4},
+	{3, 5, 5},
+	{3, 3, 4},
+	{5, 5, 5},
 	{3, 2, 5},
 	{2, 2, 7},
 	{2, 9, 2},

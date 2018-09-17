@@ -10,6 +10,7 @@
 #include "sys/process.h"
 #include "sys/etimer.h"
 #include "sys/ctimer.h"
+#include "sys/energest.h"
 #include "movement.h"
 #include <stdio.h>
 
@@ -31,6 +32,12 @@ static struct ctimer acc_timer;
 /*---------------------------------------------------------------------------*/
 PROCESS(client_process, "Hello world process");
 
+#if ENERGEST_CONF_ON == 1
+  PROCESS(energest_process, "Energest print process");
+  AUTOSTART_PROCESSES(&client_process,&energest_process);
+#else
+  AUTOSTART_PROCESSES(&client_process);
+#endif
 
 #include "mqtt_lib.h"
 
@@ -47,7 +54,6 @@ state_machine(void)
 
     case STATE_INIT:
       /* If we have just been configured register MQTT connection */
-      update_mqtt_config();
 
       mqtt_register(&conn, &client_process, client_id, mqtt_event,
                     MAX_TCP_SEGMENT_SIZE);
@@ -65,6 +71,7 @@ state_machine(void)
     case STATE_REGISTERED:
       if(uip_ds6_get_global(ADDR_PREFERRED) != NULL) {
         /* Registered and with a global IPv6 address, connect! */
+        update_mqtt_config();
         LOG_INFO("Joined network! Connect attempt %u\n", connect_attempt);
         connect_to_broker();
       }
@@ -73,11 +80,14 @@ state_machine(void)
       break;
 
     case STATE_CONNECTING:
-      /* Not connected yet. Wait */
       LOG_INFO("Connecting: retry %u...\n", connect_attempt);
       break;
 
     case STATE_CONNECTED:
+      update_mqtt_config();
+      state = STATE_PUBLISHING;
+
+
     case STATE_PUBLISHING:
       /* If the timer expired, the connection is stable. */
       if(timer_expired(&connection_life)) {
@@ -88,12 +98,12 @@ state_machine(void)
         connect_attempt = 0;
       }
 
+      LOG_INFO("Should publish\n");
       if(mqtt_ready(&conn) && conn.out_buffer_sent) {
         /* Connected. Publish */
         publish();
         etimer_set(&publish_periodic_timer, conf.pub_interval);
 
-        //LOG_INFO("Publishing\n");
         /* Return here so we don't end up rescheduling the timer */
         return;
       } else {
@@ -106,8 +116,15 @@ state_machine(void)
          * trigger a new message and we wait for TCP to either ACK the entire
          * packet after retries, or to timeout and notify us.
          */
-        LOG_INFO("Publishing... (MQTT state=%d, q=%u)\n", conn.state,
+        
+        if(!mqtt_connected(&conn) || !rpl_is_reachable()) {
+          LOG_INFO("mqtt disconnected...\n");
+          state = STATE_DISCONNECTED;
+        } else {
+          LOG_INFO("Publishing... (MQTT state=%d, q=%u)\n", conn.state,
             conn.out_queue_full);
+        }
+
       }
       break;
 
@@ -164,7 +181,6 @@ state_machine(void)
 }
 
 
-AUTOSTART_PROCESSES(&client_process);
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(client_process, ev, data)
 {
@@ -197,7 +213,6 @@ PROCESS_THREAD(client_process, ev, data)
       }
       else if(state == STATE_MOVING && mov < T) {
         LOG_INFO("The user stopped moving.\n");
-        update_mqtt_config();
         state = STATE_INIT;
         ctimer_set(&acc_timer, G, init_movement_reading, NULL);
       }
@@ -210,7 +225,6 @@ PROCESS_THREAD(client_process, ev, data)
     }
 
     if (ev == PROCESS_EVENT_TIMER && data == &publish_periodic_timer) {
-      LOG_INFO("Timer event\n");
       state_machine();
     }
   }
@@ -218,3 +232,31 @@ PROCESS_THREAD(client_process, ev, data)
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
+
+#if ENERGEST_CONF_ON == 1
+PROCESS_THREAD(energest_process, ev, data)
+{
+  static struct etimer et;
+  PROCESS_BEGIN();
+
+  /* Delay 10 second */
+  etimer_set(&et, ENERGEST_LOG_DELAY);
+
+  while(1) {
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et));
+    etimer_reset(&et);
+
+    /* Flush all energest times so we can read latest values */
+    energest_flush();
+    printf("Energest CPU: Active %lu LPM: %lu Deep LPM: %lu Total time: %lu seconds\n",
+           (unsigned long)(energest_type_time(ENERGEST_TYPE_CPU) / ENERGEST_SECOND),
+           (unsigned long)(energest_type_time(ENERGEST_TYPE_LPM) / ENERGEST_SECOND),
+           (unsigned long)(energest_type_time(ENERGEST_TYPE_DEEP_LPM) / ENERGEST_SECOND),
+           (unsigned long)(ENERGEST_GET_TOTAL_TIME() / ENERGEST_SECOND));
+    printf("Energest Radio: Listen: %lu Transmit: %lu seconds\n",
+           (unsigned long)(energest_type_time(ENERGEST_TYPE_LISTEN) / ENERGEST_SECOND),
+           (unsigned long)(energest_type_time(ENERGEST_TYPE_TRANSMIT) / ENERGEST_SECOND));
+  }
+  PROCESS_END();
+}
+#endif
