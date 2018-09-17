@@ -1,0 +1,59 @@
+\documentclass[a4paper, 11pt]{article}
+\usepackage{comment} % enables the use of multi-line comments (\ifx \fi) 
+\usepackage{lipsum} %This package just generates Lorem Ipsum filler text. 
+\usepackage{fullpage} % changes the margin
+
+\begin{document}
+%Header-Make sure you update this information!!!!
+\noindent
+\large\textbf{Middleware Project - IoT} \hfill \textbf{Marco Bacis} 873199 \\
+Prof. Mottola \hfill \textbf{Daniele Cattaneo} 874757 \\
+Prof. Guinea
+\section*{Problem Statement}
+
+The goal of the project is to develop an IPv6-based presence detection system using MQTT:
+\begin{itemize}
+\item People roaming in a given area carry wireless sensors able to sense acceleration
+\item Every relevant location in the environment, e.g., every room, is equipped with a static wireless device
+\item This device acts as an IPv6 border router and is wired to a standard host running the IPv6 stack, e.g., through a USB connection
+\item The border router id acts as an identifier for the corresponding location
+\end{itemize}
+
+\section*{Requirements}
+
+\begin{itemize}
+\item The mobile device should do everything possible to minimize energy consumption as long as the acceleration readings tell that the user is still moving
+\item Once the mobile device detects the user has stopped moving, it must
+\begin{itemize}
+    \item Connect to a nearby border router (if one is reachable)
+    \item Periodically publish an MQTT message ever K time units • Over a topic that includes the id of the border router
+    \item With a payload that includes the mobile device id
+\end{itemize}
+
+\end{itemize}
+
+\section*{Implementation}
+\lipsum[2]
+
+\subsection*{Sensor Finite State Machine}
+\lipsum[2]
+
+\subsection*{Parameters Estimation}
+\lipsum[2]
+
+\section*{Analysis \& Testing}
+\lipsum[5]
+
+\section*{Setup \& Evaluation}
+\lipsum[6]
+
+\section*{Attachments}
+%Make sure to change these
+Lab Notes, HelloWorld.ic, FooBar.ic
+%\fi %comment me out
+
+\begin{thebibliography}{9}
+\bibitem{Robotics} Monkey D. Rufy \emph{Kaizoku oni, ore wa naru!!!}. Japan.
+\end{thebibliography}
+
+\end{document}
