@@ -12,7 +12,10 @@
 #include "sys/ctimer.h"
 #include "sys/energest.h"
 #include "movement.h"
+#include "sys/clock.h"
+#include "dev/leds.h"
 #include <stdio.h>
+
 
 static uint8_t state;
 #define STATE_INIT            0
@@ -27,10 +30,11 @@ static uint8_t state;
 #define STATE_CONFIG_ERROR 0xFE
 #define STATE_ERROR        0xFF
 
+
 static struct ctimer acc_timer;
 
-/*---------------------------------------------------------------------------*/
-PROCESS(client_process, "Hello world process");
+
+PROCESS(client_process, "mw-iot-person-detection process");
 
 #if ENERGEST_CONF_ON == 1
   PROCESS(energest_process, "Energest print process");
@@ -39,7 +43,16 @@ PROCESS(client_process, "Hello world process");
   AUTOSTART_PROCESSES(&client_process);
 #endif
 
+
 #include "mqtt_lib.h"
+
+
+void blink_led(unsigned char ledv)
+{
+  leds_on(ledv);
+  clock_delay(400);
+  leds_off(ledv);
+}
 
 
 static void
@@ -80,6 +93,7 @@ state_machine(void)
       break;
 
     case STATE_CONNECTING:
+      blink_led(LEDS_RED);
       LOG_INFO("Connecting: retry %u...\n", connect_attempt);
       break;
 
@@ -89,6 +103,7 @@ state_machine(void)
 
 
     case STATE_PUBLISHING:
+      blink_led(LEDS_RED | LEDS_GREEN);
       /* If the timer expired, the connection is stable. */
       if(timer_expired(&connection_life)) {
         /*
@@ -129,6 +144,7 @@ state_machine(void)
       break;
 
     case STATE_DISCONNECTED:
+      blink_led(LEDS_RED);
       LOG_INFO("Disconnected\n");
       if(connect_attempt < RECONNECT_ATTEMPTS ||
          RECONNECT_ATTEMPTS == RETRY_FOREVER) {
@@ -184,7 +200,8 @@ state_machine(void)
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(client_process, ev, data)
 {
-
+  leds_init();
+  
   PROCESS_BEGIN();
   log_set_level("main", LOG_LEVEL_DBG);
   log_set_level("tcpip", LOG_LEVEL_DBG);
@@ -204,6 +221,7 @@ PROCESS_THREAD(client_process, ev, data)
     
     if(movement_ready(ev, data)) {
       int mov = get_movement();
+      blink_led(LEDS_GREEN);
       LOG_INFO("Read movement of %d Gs\n", mov);
       
       if(state != STATE_MOVING && mov > T) {
