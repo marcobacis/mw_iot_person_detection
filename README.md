@@ -13,8 +13,8 @@ make savetarget TARGET=srf06-cc26xx BOARD=launchpad/cc2650
 make border-router.upload PORT=/dev/ttyACM0
 make border-router.upload PORT=/dev/ttyACM2
 
-make connect-router-ACM0
-make connect-router-ACM2
+make connect-router-ACM0 PREFIX=aaaa::1/64
+make connect-router-ACM2 PREFIX=aaaa::1/64
 ```
 
 ### Step 2: flash sw on sensortag
