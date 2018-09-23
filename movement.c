@@ -5,7 +5,7 @@
 #include "board-peripherals.h"
 
 int movement_ready(process_event_t ev, process_data_t data) {
-  return ev == sensors_event && data == &mpu_9250_sensor
+  return ev == sensors_event && data == &mpu_9250_sensor;
 }
 
 void init_movement_reading(void *not_used) {
@@ -14,8 +14,6 @@ void init_movement_reading(void *not_used) {
 
 int get_movement() {
   int accx, accy, accz;
-  clock_time_t next = SENSOR_READING_PERIOD;
-
 
   accx = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_X);
   accy = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_Y);
