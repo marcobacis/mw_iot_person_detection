@@ -1,28 +1,61 @@
 #include "movement.h"
+#include "sys/log.h"
+
+
+#define LOG_MODULE "MVMT"
+#define LOG_LEVEL LOG_LEVEL_DBG
+
 
 #if BOARD_SENSORTAG
 
 #include "board-peripherals.h"
 
-int movement_ready(process_event_t ev, process_data_t data) {
+
+int movement_ready(process_event_t ev, process_data_t data)
+{
   return ev == sensors_event && data == &mpu_9250_sensor;
 }
 
-void init_movement_reading(void *not_used) {
+
+void init_movement_reading(void *not_used)
+{
   mpu_9250_sensor.configure(SENSORS_ACTIVE, MPU_9250_SENSOR_TYPE_ACC);
 }
+
+
+int get_mvmt_value_reliable(int vid)
+{
+  int try = 5;
+  int val = CC26XX_SENSOR_READING_ERROR;
+  while (try > 0 && val == CC26XX_SENSOR_READING_ERROR) {
+    val = mpu_9250_sensor.value(vid);
+    try--;
+  }
+  if (val == CC26XX_SENSOR_READING_ERROR) {
+    LOG_INFO("mvmt read failed\n");
+  } else {
+    LOG_DBG("mvmt read succeeded with %d retry attempts left\n", try);
+  }
+  return val;
+}
+
 
 int get_movement() {
   int accx, accy, accz;
 
-  accx = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_X);
-  accy = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_Y);
-  accz = mpu_9250_sensor.value(MPU_9250_SENSOR_TYPE_ACC_Z);
+  accx = get_mvmt_value_reliable(MPU_9250_SENSOR_TYPE_ACC_X);
+  accy = get_mvmt_value_reliable(MPU_9250_SENSOR_TYPE_ACC_Y);
+  accz = get_mvmt_value_reliable(MPU_9250_SENSOR_TYPE_ACC_Z);
+  if (accx == CC26XX_SENSOR_READING_ERROR || accy == CC26XX_SENSOR_READING_ERROR || accz == CC26XX_SENSOR_READING_ERROR)
+    return -1;
+  
+  LOG_INFO("mvmt read: %d %d %d\n", accx, accy, accz);
 
   SENSORS_DEACTIVATE(mpu_9250_sensor);
 
-  return abs(accx)+abs(accy)+abs(accz);
+  return accx*accx + accy*accy + accz*accz;
 }
+
 
 #else
 
