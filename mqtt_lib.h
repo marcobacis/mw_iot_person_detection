@@ -14,7 +14,6 @@
 #define LOG_MODULE "MQTT-DEMO"
 #define LOG_LEVEL LOG_LEVEL_INFO
 
-#include <time.h>
 #include <string.h>
 /*---------------------------------------------------------------------------*/
 /*
@@ -263,12 +262,9 @@ publish(void)
   int len;
   int remaining = APP_BUFFER_SIZE;
 
-  time_t timestamp;
-  time(&timestamp);
-
   seq_nr_value++;
 
-  len = snprintf(app_buffer, remaining, "{\"client_id\":\"%s\",\"time\":\"%ld\"}", client_id, timestamp); 
+  len = snprintf(app_buffer, remaining, "{\"client_id\":\"%s\",\"seq_nr_value\":\"%d\"}", client_id, seq_nr_value); 
 
   if(len < 0 || len >= remaining) {
     LOG_ERR("Buffer too short. Have %d, need %d + \\0\n", remaining, len);
