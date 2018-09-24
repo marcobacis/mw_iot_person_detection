@@ -59,23 +59,29 @@ int get_movement() {
 
 #else
 
+
 #include MOVEMENT_FILE
+
 
 #define SENSOR_STARTUP_DELAY      5
 
+
 process_event_t fakesens_event;
 
-int movement_ready(process_event_t ev, process_data_t data) {
+
+int movement_ready(process_event_t ev, process_data_t data)
+{
   return ev == fakesens_event;
 }
 
-void init_movement_reading(void *not_used) {
-  
+
+void init_movement_reading(void *not_used)
+{  
   process_post(PROCESS_BROADCAST, fakesens_event, NULL);
 }
 
-int get_movement() {
-  
+int get_movement()
+{  
   static int mov_idx = 0;
 
   int accx = movements[mov_idx][0];
@@ -88,8 +94,7 @@ int get_movement() {
     mov_idx = 0;
   }
     
-
-  return abs(accx)+abs(accy)+abs(accz);
+  return accx*accx + accy*accy + accz*accz;
 }
 
 
