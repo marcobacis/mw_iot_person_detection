@@ -66,7 +66,7 @@ int get_movement() {
 #define SENSOR_STARTUP_DELAY      5
 
 
-process_event_t fakesens_event;
+process_event_t fakesens_event = PROCESS_EVENT_NONE;
 
 
 int movement_ready(process_event_t ev, process_data_t data)
@@ -77,11 +77,15 @@ int movement_ready(process_event_t ev, process_data_t data)
 
 void init_movement_reading(void *not_used)
 {  
+  if (fakesens_event == PROCESS_EVENT_NONE) {
+    fakesens_event = process_alloc_event();
+  }
   process_post(PROCESS_BROADCAST, fakesens_event, NULL);
 }
 
+
 int get_movement()
-{  
+{
   static int mov_idx = 0;
 
   int accx = movements[mov_idx][0];
