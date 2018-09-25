@@ -34,9 +34,13 @@
 #define G (20 * CLOCK_SECOND)
 
 //MQTT-specific defines
-
 #define MQTT_PUBLISH_TOPIC_PREFIX   "iot/position/"
-#define MQTT_DEFAULT_BROKER_IP_ADDR "aaaa::1"
+#define MQTT_BROKER_IP_ADDR         "aaaa::1"
+#define MQTT_BROKER_PORT            1883
+#define MQTT_TYPE_ID                "cc26xx"
+#define MQTT_AUTH_TOKEN             "AUTHZ"
+#define MQTT_SUBSCRIBE_CMD_TYPE     "+"
+
 
 #define RECONNECT_ATTEMPTS         2
 #define CONNECTION_STABLE_TIME     (CLOCK_SECOND * 5)
