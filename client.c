@@ -205,13 +205,15 @@ PROCESS_THREAD(mqtt_monitor_process, ev, data)
       set_led_pattern(LEDS_GREEN, 0b1, 0);
       LOG_INFO("Read movement of %d Gs\n", mov);
       
-      if(!is_moving && mov > T) {
+      char moving_rn = mov > T_HIGH || mov < T_LOW;
+      
+      if(!is_moving && moving_rn) {
         LOG_INFO("User started moving.\n");
         is_moving = 1;
         process_post(&client_process, mvmt_state_change, NULL);
         next_wake = MOVEMENT_PERIOD;
         
-      } else if(is_moving && mov < T) {
+      } else if(is_moving && !moving_rn) {
         LOG_INFO("User stopped moving.\n");
         is_moving = 0;
         process_post(&client_process, mvmt_state_change, NULL);

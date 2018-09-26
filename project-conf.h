@@ -20,7 +20,9 @@
 // Project-related defines
 
 //Threshold to identify movement
-#define T 101*101  // G + 1%G
+#define T_HIGH 101*101  // G + 1%G
+#define T_LOW  95*95
+
 
 //Movement reading period
 #define MOVEMENT_PERIOD (10 * CLOCK_SECOND)
@@ -31,7 +33,11 @@
 #define K (10 * CLOCK_SECOND)
 
 //Time to wait before checking if the person is moving (seconds)
+#ifdef CONTIKI_TARGET_NATIVE
 #define G (20 * CLOCK_SECOND)
+#else
+#define G (2 * CLOCK_SECOND)
+#endif
 
 //MQTT-specific defines
 #define MQTT_PUBLISH_TOPIC_PREFIX   "iot/position/"
