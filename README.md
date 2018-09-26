@@ -10,12 +10,21 @@ Iot project for the "Middleware Technologies for Distributed Systems" course at 
 ```
 cd ../contiki-ng-course/examples/rpl-border-router
 make savetarget TARGET=srf06-cc26xx BOARD=launchpad/cc2650
+```
 
-make border-router.upload PORT=/dev/ttyACM0
-make border-router.upload PORT=/dev/ttyACM2
+Flash each board (assuming the RS232 interface is connected to `/dev/ttyACMx`):
+```
+make border-router.upload PORT=/dev/ttyACMx
+```
 
-make connect-router-ACM0 PREFIX=aaaa::1/64
-make connect-router-ACM2 PREFIX=aaaa::1/64
+Reset the board and then connect it to the external network. On linux:
+```
+make connect-router-ACMx PREFIX=aaaa::1/64
+```
+
+On macOS, first install tuntaposx, then:
+```
+../../tools/tunslip6 -L -v2 -t tun0 -s ttyACMx aaaa::1/64
 ```
 
 (the device names `/dev/ttyACMx` can change)
