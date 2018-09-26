@@ -349,7 +349,7 @@ PROCESS_THREAD(client_process, ev, data)
           connect_attempt = 0;
         }
 
-        if (!etimer_expired(&mqtt_publish_timer))
+        if (ev != PROCESS_EVENT_TIMER && ev != mqtt_did_connect)
           break;
           
         LOG_INFO("Should publish\n");
@@ -372,6 +372,7 @@ PROCESS_THREAD(client_process, ev, data)
           } else {
             LOG_INFO("Still publishing... (MQTT state=%d, q=%u)\n", conn.state,
               conn.out_queue_full);
+            next_wake = K;
           }
         }
         break;
@@ -399,7 +400,6 @@ PROCESS_THREAD(client_process, ev, data)
       PROCESS_YIELD();
       LOG_DBG("MQTT thd woke, force_wait = %d, ev = 0x%02X, data = %p\n", force_wait, ev, data);
     } while (force_wait && ev != PROCESS_EVENT_TIMER);
-    etimer_stop(&mqtt_publish_timer);
     force_wait = 0;
   }
   
