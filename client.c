@@ -17,6 +17,7 @@
 #include "sys/log.h"
 #include "movement.h"
 #include "energest-log.h"
+#include "led-report.h"
 
 
 #define LOG_MODULE "PD Client"
@@ -35,9 +36,9 @@ PROCESS(client_process, "mw-iot-person-detection main");
 PROCESS(mqtt_monitor_process, "mw-iot-person-detection mqtt monitor");
 
 #if ENERGEST_CONF_ON == 1
-  AUTOSTART_PROCESSES(&client_process, &mqtt_monitor_process, &energest_process);
+  AUTOSTART_PROCESSES(&client_process, &mqtt_monitor_process, &led_report_process, &energest_process);
 #else
-  AUTOSTART_PROCESSES(&client_process, &mqtt_monitor_process);
+  AUTOSTART_PROCESSES(&client_process, &mqtt_monitor_process, &led_report_process);
 #endif
 
 
@@ -185,14 +186,6 @@ static void publish(void)
 }
 
 
-void blink_led(unsigned char ledv)
-{
-  leds_on(ledv);
-  clock_delay(400);
-  leds_off(ledv);
-}
-
-
 PROCESS_THREAD(mqtt_monitor_process, ev, data)
 {
   static struct etimer acc_timer;
@@ -209,7 +202,7 @@ PROCESS_THREAD(mqtt_monitor_process, ev, data)
     
     if (movement_ready(ev, data)) {
       int mov = get_movement();
-      blink_led(LEDS_GREEN);
+      set_led_pattern(LEDS_GREEN, 0b1, 0);
       LOG_INFO("Read movement of %d Gs\n", mov);
       
       if(!is_moving && mov > T) {
@@ -253,8 +246,7 @@ PROCESS_THREAD(client_process, ev, data)
     MQTT_STATE_CONNECTING,
     MQTT_STATE_RETRY_CONNECTION,
     MQTT_STATE_CONNECTED,
-    MQTT_STATE_DISCONNECT,
-    MQTT_STATE_DISCONNECTED
+    MQTT_STATE_DISCONNECT
   } mqtt_state = MQTT_STATE_INIT;
   
   PROCESS_BEGIN();
@@ -321,13 +313,13 @@ PROCESS_THREAD(client_process, ev, data)
 
       /* Waiting for connection established MQTT event */
       case MQTT_STATE_CONNECTING:
-        blink_led(LEDS_RED);
+        set_led_pattern(LEDS_RED, 0b000001001, 9);
         LOG_INFO("Still connecting: retry %u...\n", connect_attempt);
         break;
         
       /* Disconnected after attempting an MQTT connection */
       case MQTT_STATE_RETRY_CONNECTION:
-        blink_led(LEDS_RED);
+        set_led_pattern(LEDS_RED, 0b00010101, 0);
         LOG_INFO("Disconnected\n");
         
         if (is_moving) {
@@ -348,7 +340,7 @@ PROCESS_THREAD(client_process, ev, data)
 
       /* Connected successfully */
       case MQTT_STATE_CONNECTED:
-        blink_led(LEDS_RED | LEDS_GREEN);
+        set_led_pattern(LEDS_RED | LEDS_GREEN, 0b111, 0);
         
         /* If the timer expired, the connection is stable. */
         if (timer_expired(&connection_life)) {
@@ -397,13 +389,15 @@ PROCESS_THREAD(client_process, ev, data)
     /* Reschedule ourselves */
     if (next_wake > 0) {
       etimer_set(&mqtt_publish_timer, next_wake);
+      LOG_DBG("MQTT thd next wake = %ld\n", next_wake);
     } else {
       force_wait = 0;
     }
     do {
       PROCESS_YIELD();
-      LOG_DBG("MQTT thd woke, force_wait = %d, ev = %d\n", force_wait, ev);
+      LOG_DBG("MQTT thd woke, force_wait = %d, ev = 0x%02X, data = %p\n", force_wait, ev, data);
     } while (force_wait && ev != PROCESS_EVENT_TIMER);
+    etimer_stop(&mqtt_publish_timer);
     force_wait = 0;
   }
   
