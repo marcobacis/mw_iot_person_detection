@@ -20,7 +20,7 @@
 // Project-related defines
 
 //Threshold to identify movement
-#define T 110*110  // G + 10%G
+#define T 101*101  // G + 1%G
 
 //Movement reading period
 #define MOVEMENT_PERIOD (10 * CLOCK_SECOND)

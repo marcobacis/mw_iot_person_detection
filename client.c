@@ -23,29 +23,21 @@
 #define LOG_LEVEL LOG_LEVEL_INFO
 
 
-static uint8_t state;
-#define STATE_INIT            0
-#define STATE_REGISTERED      1
-#define STATE_CONNECTING      2
-#define STATE_CONNECTED       3
-#define STATE_PUBLISHING      4
-#define STATE_DISCONNECTED    5
-#define STATE_NEWCONFIG       6
-#define STATE_MOVING          7
-#define STATE_INIT_MOVE       8
-#define STATE_CONFIG_ERROR 0xFE
-#define STATE_ERROR        0xFF
+static char mqtt_connected;
+process_event_t mqtt_did_connect;
+process_event_t mqtt_did_disconnect;
+
+static char is_moving = 1;
+process_event_t mvmt_state_change;
 
 
-static struct ctimer acc_timer;
-
-
-PROCESS(client_process, "mw-iot-person-detection process");
+PROCESS(client_process, "mw-iot-person-detection main");
+PROCESS(mqtt_monitor_process, "mw-iot-person-detection mqtt monitor");
 
 #if ENERGEST_CONF_ON == 1
-  AUTOSTART_PROCESSES(&client_process, &energest_process);
+  AUTOSTART_PROCESSES(&client_process, &mqtt_monitor_process, &energest_process);
 #else
-  AUTOSTART_PROCESSES(&client_process);
+  AUTOSTART_PROCESSES(&client_process, &mqtt_monitor_process);
 #endif
 
 
@@ -63,7 +55,6 @@ PROCESS(client_process, "mw-iot-person-detection process");
 
 
 static struct timer connection_life;
-static uint8_t connect_attempt;
 
 
 /* A timeout used when waiting to connect to a network */
@@ -77,7 +68,7 @@ static uint8_t connect_attempt;
 static struct mqtt_connection conn;
 
 
-static struct etimer publish_periodic_timer;
+static struct etimer mqtt_publish_timer;
 static uint16_t seq_nr_value = 0;
 
 
@@ -146,22 +137,21 @@ static char *client_id(void)
 static void mqtt_event(struct mqtt_connection *m, mqtt_event_t event, void *data)
 {
   switch(event) {
-    case MQTT_EVENT_CONNECTED: {
+    case MQTT_EVENT_CONNECTED:
       LOG_INFO("Application has a MQTT connection!\n");
       timer_set(&connection_life, CONNECTION_STABLE_TIME);
-      state = STATE_CONNECTED;
+      process_post(&client_process, mqtt_did_connect, NULL);
       break;
-    }
-    case MQTT_EVENT_DISCONNECTED: {
+    
+    case MQTT_EVENT_DISCONNECTED: 
       LOG_INFO("MQTT Disconnect: reason %u\n", *((mqtt_event_t *)data));
-      state = STATE_DISCONNECTED;
-      process_poll(&client_process);
+      process_post(&client_process, mqtt_did_disconnect, NULL);
       break;
-    }
-    case MQTT_EVENT_PUBACK: {
+    
+    case MQTT_EVENT_PUBACK:
       LOG_INFO("Publishing complete\n");
       break;
-    }
+    
     default:
       LOG_WARN("Application got a unhandled MQTT event: %i\n", event);
       break;
@@ -203,186 +193,218 @@ void blink_led(unsigned char ledv)
 }
 
 
-static void
-state_machine(void)
+PROCESS_THREAD(mqtt_monitor_process, ev, data)
 {
-  switch(state) {
-
-    case STATE_MOVING:
-      /* Dummy state, all the checks are done in the main process */
-      etimer_set(&publish_periodic_timer, STATE_MACHINE_PERIODIC);
-      return;
-
-    case STATE_INIT:
-      /* If we have just been configured register MQTT connection */
-      mqtt_register(&conn, &client_process, client_id(), mqtt_event,
-                    MAX_TCP_SEGMENT_SIZE);
-      mqtt_set_username_password(&conn, "use-token-auth", MQTT_AUTH_TOKEN);
-                                     
-      /* _register() will set auto_reconnect. We don't want that. */
-      conn.auto_reconnect = 0;
-      connect_attempt = 1;
-
-      state = STATE_REGISTERED;
-      LOG_INFO("Init\n");
-
-    case STATE_REGISTERED:
-      if(uip_ds6_get_global(ADDR_PREFERRED) != NULL) {
-        /* Registered and with a global IPv6 address, connect! */
-        LOG_INFO("Joined network! Connect attempt %u\n", connect_attempt);
-        mqtt_connect(&conn, MQTT_BROKER_IP_ADDR, MQTT_BROKER_PORT, K * 3);
-        state = STATE_CONNECTING;
-      }
-      etimer_set(&publish_periodic_timer, NET_CONNECT_PERIODIC);
-      return;
-      break;
-
-    case STATE_CONNECTING:
-      blink_led(LEDS_RED);
-      LOG_INFO("Connecting: retry %u...\n", connect_attempt);
-      break;
-
-    case STATE_CONNECTED:
-      state = STATE_PUBLISHING;
-
-    case STATE_PUBLISHING:
-      blink_led(LEDS_RED | LEDS_GREEN);
-      /* If the timer expired, the connection is stable. */
-      if(timer_expired(&connection_life)) {
-        /*
-         * Intentionally using 0 here instead of 1: We want RECONNECT_ATTEMPTS
-         * attempts if we disconnect after a successful connect
-         */
-        connect_attempt = 0;
-      }
-
-      LOG_INFO("Should publish\n");
-      if(mqtt_ready(&conn) && conn.out_buffer_sent) {
-        /* Connected. Publish */
-        publish();
-        etimer_set(&publish_periodic_timer, K);
-
-        /* Return here so we don't end up rescheduling the timer */
-        return;
-      } else {
-        /*
-         * Our publish timer fired, but some MQTT packet is already in flight
-         * (either not sent at all, or sent but not fully ACKd).
-         *
-         * This can mean that we have lost connectivity to our broker or that
-         * simply there is some network delay. In both cases, we refuse to
-         * trigger a new message and we wait for TCP to either ACK the entire
-         * packet after retries, or to timeout and notify us.
-         */
+  static struct etimer acc_timer;
+  
+  PROCESS_BEGIN();
+  
+  is_moving = 1;
+  mvmt_state_change = process_alloc_event();
+  init_movement_reading(NULL);
+  
+  while (1) {
+    PROCESS_YIELD();
+    clock_time_t next_wake;
+    
+    if (movement_ready(ev, data)) {
+      int mov = get_movement();
+      blink_led(LEDS_GREEN);
+      LOG_INFO("Read movement of %d Gs\n", mov);
+      
+      if(!is_moving && mov > T) {
+        LOG_INFO("User started moving.\n");
+        is_moving = 1;
+        process_post(&client_process, mvmt_state_change, NULL);
+        next_wake = MOVEMENT_PERIOD;
         
-        if(!mqtt_connected(&conn) || !rpl_is_reachable()) {
-          LOG_INFO("mqtt disconnected...\n");
-          state = STATE_DISCONNECTED;
-        } else {
-          LOG_INFO("Publishing... (MQTT state=%d, q=%u)\n", conn.state,
-            conn.out_queue_full);
-        }
-
-      }
-      break;
-
-    case STATE_DISCONNECTED:
-      blink_led(LEDS_RED);
-      LOG_INFO("Disconnected\n");
-      if(connect_attempt < RECONNECT_ATTEMPTS ||
-         RECONNECT_ATTEMPTS == RETRY_FOREVER) {
-        /* Disconnect and backoff */
-        clock_time_t interval;
-        mqtt_disconnect(&conn);
-        connect_attempt++;
-
-        interval = connect_attempt < 3 ? RECONNECT_INTERVAL << connect_attempt :
-          RECONNECT_INTERVAL << 3;
-
-        LOG_INFO("Disconnected: attempt %u in %lu ticks\n", connect_attempt, interval);
-
-        etimer_set(&publish_periodic_timer, interval);
-
-        state = STATE_REGISTERED;
-        return;
+      } else if(is_moving && mov < T) {
+        LOG_INFO("User stopped moving.\n");
+        is_moving = 0;
+        process_post(&client_process, mvmt_state_change, NULL);
+        next_wake = G;
+        
+      } else if (is_moving) {
+        next_wake = MOVEMENT_PERIOD;
+        
       } else {
-        /* Max reconnect attempts reached. Restart movement checking*/
-        state = STATE_INIT_MOVE;
-        LOG_ERR("Keep movin'\n");
+        next_wake = G;
+        
       }
-      break;
-
-    case STATE_INIT_MOVE:
-      mqtt_disconnect(&conn);
-      state = STATE_MOVING;
-      LOG_INFO("Restarting movement.\n");
-      break;
-
-    case STATE_CONFIG_ERROR:
-      /* Idle away. The only way out is a new config */
-      LOG_ERR("Bad configuration.\n");
-      return;
-
-    case STATE_ERROR:
-    default:
-      /*
-       * 'default' should never happen.
-       *
-       * If we enter here it's because of some error. Stop timers. The only thing
-       * that can bring us out is a new config event
-       */
-      LOG_INFO("Default case: State=0x%02x\n", state);
-      return;
+      etimer_set(&acc_timer, next_wake);
+      
+      do {
+        PROCESS_YIELD();
+      } while (ev != PROCESS_EVENT_TIMER && data != &acc_timer);
+      init_movement_reading(NULL);
+    }
   }
-
-  /* If we didn't return so far, reschedule ourselves */
-  etimer_set(&publish_periodic_timer, STATE_MACHINE_PERIODIC);
+  
+  PROCESS_END();
 }
 
 
 PROCESS_THREAD(client_process, ev, data)
 {
-  leds_init();
+  static int connect_attempt = 0;
+  static enum {
+    MQTT_STATE_IDLE,
+    MQTT_STATE_INIT,
+    MQTT_STATE_CONNECTING,
+    MQTT_STATE_RETRY_CONNECTION,
+    MQTT_STATE_CONNECTED,
+    MQTT_STATE_DISCONNECT,
+    MQTT_STATE_DISCONNECTED
+  } mqtt_state = MQTT_STATE_INIT;
   
   PROCESS_BEGIN();
+  
+  leds_init();
   log_set_level("main", LOG_LEVEL_DBG);
   log_set_level("tcpip", LOG_LEVEL_DBG);
   
-  init_movement_reading(NULL);
+  mqtt_connected = 0;
+  mqtt_did_connect = process_alloc_event();
+  mqtt_did_disconnect = process_alloc_event();
 
-  state = STATE_MOVING;
-
-  etimer_set(&publish_periodic_timer, STATE_MACHINE_PERIODIC);
+  etimer_set(&mqtt_publish_timer, STATE_MACHINE_PERIODIC);
   
-  while(1) {
-    PROCESS_YIELD();
+  while (1) {
+    static char force_wait = 0;
+    clock_time_t next_wake = 0;
     
-    if(movement_ready(ev, data)) {
-      int mov = get_movement();
-      blink_led(LEDS_GREEN);
-      LOG_INFO("Read movement of %d Gs\n", mov);
+    /* Externally triggered transitions */
+    if (mqtt_state == MQTT_STATE_IDLE && !is_moving) {
+      mqtt_state = MQTT_STATE_INIT;
       
-      if(state != STATE_MOVING && mov > T) {
-        LOG_INFO("Restart movement.\n");
-        state = STATE_INIT_MOVE;
-        ctimer_set(&acc_timer, MOVEMENT_PERIOD, init_movement_reading, NULL);
-      }
-      else if(state == STATE_MOVING && mov < T) {
-        LOG_INFO("The user stopped moving.\n");
-        state = STATE_INIT;
-        ctimer_set(&acc_timer, G, init_movement_reading, NULL);
-      }
-      else if(state == STATE_MOVING) {
-        ctimer_set(&acc_timer, MOVEMENT_PERIOD, init_movement_reading, NULL);
-      }
-      else {
-        ctimer_set(&acc_timer, G, init_movement_reading, NULL);
-      }
+    } else if (mqtt_state == MQTT_STATE_CONNECTING && ev == mqtt_did_connect) {
+      mqtt_state = MQTT_STATE_CONNECTED;
+      
+    } else if (mqtt_state == MQTT_STATE_CONNECTING && ev == mqtt_did_disconnect) {
+      mqtt_state = MQTT_STATE_RETRY_CONNECTION;
+      
+    } else if (mqtt_state == MQTT_STATE_CONNECTED && is_moving) {
+      mqtt_state = MQTT_STATE_DISCONNECT;
+      
+    } else if (mqtt_state == MQTT_STATE_CONNECTED && ev == mqtt_did_disconnect) {
+      mqtt_state = MQTT_STATE_IDLE;
+    }
+    
+    LOG_DBG("MQTT thread exec state %d\n", mqtt_state);
+    
+    switch(mqtt_state) {
+      /* Disconnected; waiting for connection-triggering event */
+      case MQTT_STATE_IDLE:
+        break;
+
+      /* Connection-triggering event received; try connecting */
+      case MQTT_STATE_INIT:
+        LOG_INFO("MQTT initialization initiated\n");
+        
+        /* If we have just been configured register MQTT connection */
+        mqtt_register(&conn, &client_process, client_id(), mqtt_event,
+                      MAX_TCP_SEGMENT_SIZE);
+        mqtt_set_username_password(&conn, "use-token-auth", MQTT_AUTH_TOKEN);
+        
+        /* _register() will set auto_reconnect. We don't want that. */
+        conn.auto_reconnect = 0;
+        connect_attempt = 1;
+
+        if (uip_ds6_get_global(ADDR_PREFERRED) != NULL) {
+          /* Registered and with a global IPv6 address, connect! */
+          LOG_INFO("Connect attempt %u\n", connect_attempt);
+          mqtt_connect(&conn, MQTT_BROKER_IP_ADDR, MQTT_BROKER_PORT, K * 3);
+          mqtt_state = MQTT_STATE_CONNECTING;
+        }
+        next_wake = NET_CONNECT_PERIODIC;
+        break;
+
+      /* Waiting for connection established MQTT event */
+      case MQTT_STATE_CONNECTING:
+        blink_led(LEDS_RED);
+        LOG_INFO("Still connecting: retry %u...\n", connect_attempt);
+        break;
+        
+      /* Disconnected after attempting an MQTT connection */
+      case MQTT_STATE_RETRY_CONNECTION:
+        blink_led(LEDS_RED);
+        LOG_INFO("Disconnected\n");
+        
+        if (is_moving) {
+          mqtt_state = MQTT_STATE_IDLE;
+          LOG_INFO("We did move; stop trying to connect");
+          
+        } else  {
+          /* Disconnect and backoff */
+          mqtt_disconnect(&conn);
+          connect_attempt++;
+          LOG_INFO("Disconnected: attempt %u in %d ticks\n", connect_attempt, RECONNECT_INTERVAL);
+
+          next_wake = RECONNECT_INTERVAL;
+          force_wait = 1;
+          mqtt_state = MQTT_STATE_INIT;
+        }
+        break;
+
+      /* Connected successfully */
+      case MQTT_STATE_CONNECTED:
+        blink_led(LEDS_RED | LEDS_GREEN);
+        
+        /* If the timer expired, the connection is stable. */
+        if (timer_expired(&connection_life)) {
+          connect_attempt = 0;
+        }
+
+        if (!etimer_expired(&mqtt_publish_timer))
+          break;
+          
+        LOG_INFO("Should publish\n");
+        if(mqtt_ready(&conn) && conn.out_buffer_sent) {
+          /* Connected. Publish */
+          publish();
+          next_wake = K;
+        } else {
+          /* Our publish timer fired, but some MQTT packet is already in flight
+           * (either not sent at all, or sent but not fully ACKd).
+           *
+           * This can mean that we have lost connectivity to our broker or that
+           * simply there is some network delay. In both cases, we refuse to
+           * trigger a new message and we wait for TCP to either ACK the entire
+           * packet after retries, or to timeout and notify us. */
+        
+          if(!mqtt_connected(&conn) || !rpl_is_reachable()) {
+            LOG_INFO("mqtt disconnected...\n");
+            mqtt_state = MQTT_STATE_IDLE;
+          } else {
+            LOG_INFO("Still publishing... (MQTT state=%d, q=%u)\n", conn.state,
+              conn.out_queue_full);
+          }
+        }
+        break;
+        
+      case MQTT_STATE_DISCONNECT:
+        LOG_INFO("Disconnecting MQTT\n");
+        mqtt_disconnect(&conn);
+        mqtt_state = MQTT_STATE_IDLE;
+        break;
+
+      /* Should never happen */
+      default:
+        LOG_INFO("Default case: State=0x%02x\n", mqtt_state);
+        break;
     }
 
-    if (ev == PROCESS_EVENT_TIMER && data == &publish_periodic_timer) {
-      state_machine();
+    /* Reschedule ourselves */
+    if (next_wake > 0) {
+      etimer_set(&mqtt_publish_timer, next_wake);
+    } else {
+      force_wait = 0;
     }
+    do {
+      PROCESS_YIELD();
+      LOG_DBG("MQTT thd woke, force_wait = %d, ev = %d\n", force_wait, ev);
+    } while (force_wait && ev != PROCESS_EVENT_TIMER);
+    force_wait = 0;
   }
   
   PROCESS_END();
