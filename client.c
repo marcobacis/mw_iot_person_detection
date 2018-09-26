@@ -289,11 +289,12 @@ PROCESS_THREAD(client_process, ev, data)
     switch(mqtt_state) {
       /* Disconnected; waiting for connection-triggering event */
       case MQTT_STATE_IDLE:
+        set_led_pattern(LEDS_RED, 0, 0);
         break;
 
       /* Connection-triggering event received; try connecting */
       case MQTT_STATE_INIT:
-        LOG_INFO("MQTT initialization initiated\n");
+        LOG_INFO("MQTT initialization\n");
         
         /* If we have just been configured register MQTT connection */
         mqtt_register(&conn, &client_process, client_id(), mqtt_event,
@@ -309,13 +310,23 @@ PROCESS_THREAD(client_process, ev, data)
           LOG_INFO("Connect attempt %u\n", connect_attempt);
           mqtt_connect(&conn, MQTT_BROKER_IP_ADDR, MQTT_BROKER_PORT, K * 3);
           mqtt_state = MQTT_STATE_CONNECTING;
+          set_led_pattern(LEDS_RED, 0b000000010001, 12);
+          next_wake = NET_CONNECT_PERIODIC;
+        } else {
+          LOG_INFO("No IP address; ");
+          if (is_moving) {
+            LOG_INFO("we are moving; stop trying\n");
+            mqtt_state = MQTT_STATE_IDLE;
+          } else {
+            LOG_INFO("retrying in a short while\n");
+            next_wake = RECONNECT_INTERVAL;
+          }
+          set_led_pattern(LEDS_RED, 0b01, 0);
         }
-        next_wake = NET_CONNECT_PERIODIC;
         break;
 
       /* Waiting for connection established MQTT event */
       case MQTT_STATE_CONNECTING:
-        set_led_pattern(LEDS_RED, 0b000001001, 9);
         LOG_INFO("Still connecting: retry %u...\n", connect_attempt);
         break;
         
@@ -342,8 +353,6 @@ PROCESS_THREAD(client_process, ev, data)
 
       /* Connected successfully */
       case MQTT_STATE_CONNECTED:
-        set_led_pattern(LEDS_RED | LEDS_GREEN, 0b111, 0);
-        
         /* If the timer expired, the connection is stable. */
         if (timer_expired(&connection_life)) {
           connect_attempt = 0;
@@ -355,8 +364,10 @@ PROCESS_THREAD(client_process, ev, data)
         LOG_INFO("Should publish\n");
         if(mqtt_ready(&conn) && conn.out_buffer_sent) {
           /* Connected. Publish */
+          set_led_pattern(LEDS_RED | LEDS_GREEN, 0b0101, 0);
           publish();
           next_wake = K;
+          
         } else {
           /* Our publish timer fired, but some MQTT packet is already in flight
            * (either not sent at all, or sent but not fully ACKd).
@@ -365,7 +376,7 @@ PROCESS_THREAD(client_process, ev, data)
            * simply there is some network delay. In both cases, we refuse to
            * trigger a new message and we wait for TCP to either ACK the entire
            * packet after retries, or to timeout and notify us. */
-        
+          set_led_pattern(LEDS_RED, 0b0101, 0);
           if(!mqtt_connected(&conn) || !rpl_is_reachable()) {
             LOG_INFO("mqtt disconnected...\n");
             mqtt_state = MQTT_STATE_IDLE;
@@ -378,6 +389,7 @@ PROCESS_THREAD(client_process, ev, data)
         break;
         
       case MQTT_STATE_DISCONNECT:
+        set_led_pattern(LEDS_RED, 0b0101, 0);
         LOG_INFO("Disconnecting MQTT\n");
         mqtt_disconnect(&conn);
         mqtt_state = MQTT_STATE_IDLE;

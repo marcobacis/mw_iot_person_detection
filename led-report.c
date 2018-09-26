@@ -4,9 +4,13 @@
 
 
 #define LOG_MODULE "Leds"
+#ifdef CONTIKI_TARGET_NATIVE
+#define LOG_LEVEL LOG_LEVEL_DBG
+#else
 #define LOG_LEVEL LOG_LEVEL_INFO
+#endif
 
-#define LED_PERIOD (CLOCK_SECOND / 8)
+#define LED_PERIOD (CLOCK_SECOND / 16)
 #define NUM_LEDS   3
 
 
