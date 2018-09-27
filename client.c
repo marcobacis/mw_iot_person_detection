@@ -36,9 +36,9 @@ PROCESS(client_process, "mw-iot-person-detection main");
 PROCESS(mqtt_monitor_process, "mw-iot-person-detection mqtt monitor");
 
 #if ENERGEST_CONF_ON == 1
-  AUTOSTART_PROCESSES(&client_process, &mqtt_monitor_process, &led_report_process, &energest_process);
+  AUTOSTART_PROCESSES(&client_process, &energest_process);
 #else
-  AUTOSTART_PROCESSES(&client_process, &mqtt_monitor_process, &led_report_process);
+  AUTOSTART_PROCESSES(&client_process);
 #endif
 
 
@@ -253,9 +253,11 @@ PROCESS_THREAD(client_process, ev, data)
   
   PROCESS_BEGIN();
   
-  leds_init();
   log_set_level("main", LOG_LEVEL_DBG);
   log_set_level("tcpip", LOG_LEVEL_DBG);
+  
+  led_report_init();
+  process_start(&mqtt_monitor_process, NULL);
   
   mqtt_connected = 0;
   mqtt_did_connect = process_alloc_event();

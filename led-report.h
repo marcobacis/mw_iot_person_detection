@@ -5,7 +5,7 @@
 #include "dev/leds.h"
 
 
-PROCESS_NAME(led_report_process);
+void led_report_init(void);
 
 void set_led_pattern(uint8_t leds, uint32_t pattern, uint8_t period);
 
