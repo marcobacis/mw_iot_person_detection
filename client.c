@@ -43,7 +43,7 @@ PROCESS(mqtt_monitor_process, "mw-iot-person-detection mqtt monitor");
 
 
 #define MQTT_MAX_TOPIC_LENGTH 64
-#define MQTT_MAX_CONTENT_LENGTH 64
+#define MQTT_MAX_CONTENT_LENGTH 256
 
 
 /* A timeout used when waiting for something to happen (e.g. to connect or to
@@ -169,9 +169,17 @@ static void publish(void)
 
   seq_nr_value++;
 
-  len = snprintf(app_buffer, remaining, "{\"client_id\":\"%s\",\"seq_nr_value\":\"%d\"}", client_id(), seq_nr_value); 
+  len = snprintf(app_buffer, remaining, 
+    "{"
+      "\"client_id\":\"%s\","
+      "\"seq_nr_value\":\"%d\","
+      "\"last_accel\":\"%d, %d, %d\""
+    "}", 
+    client_id(), 
+    seq_nr_value, 
+    last_acc[LAST_ACC_X], last_acc[LAST_ACC_Y], last_acc[LAST_ACC_Z]); 
 
-  if(len < 0 || len >= remaining) {
+  if (len < 0 || len >= remaining) {
     LOG_ERR("Buffer too short. Have %d, need %d + \\0\n", remaining, len);
     return;
   }

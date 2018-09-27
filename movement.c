@@ -2,13 +2,17 @@
 #include "sys/log.h"
 
 
-#define LOG_MODULE "MVMT"
-#define LOG_LEVEL LOG_LEVEL_DBG
+#define LOG_MODULE "Movement"
+#define LOG_LEVEL LOG_LEVEL_INFO
+
+int last_acc[3];
 
 
 #if BOARD_SENSORTAG
 
 #include "board-peripherals.h"
+
+#define READING_ERROR CC26XX_SENSOR_READING_ERROR
 
 
 int movement_ready(process_event_t ev, process_data_t data)
@@ -40,20 +44,15 @@ int get_mvmt_value_reliable(int vid)
 }
 
 
-int get_movement() {
-  int accx, accy, accz;
-
-  accx = get_mvmt_value_reliable(MPU_9250_SENSOR_TYPE_ACC_X);
-  accy = get_mvmt_value_reliable(MPU_9250_SENSOR_TYPE_ACC_Y);
-  accz = get_mvmt_value_reliable(MPU_9250_SENSOR_TYPE_ACC_Z);
-  if (accx == CC26XX_SENSOR_READING_ERROR || accy == CC26XX_SENSOR_READING_ERROR || accz == CC26XX_SENSOR_READING_ERROR)
-    return -1;
+void platform_get_movement(void)
+{
+  last_acc[LAST_ACC_X] = get_mvmt_value_reliable(MPU_9250_SENSOR_TYPE_ACC_X);
+  last_acc[LAST_ACC_Y] = get_mvmt_value_reliable(MPU_9250_SENSOR_TYPE_ACC_Y);
+  last_acc[LAST_ACC_Z] = get_mvmt_value_reliable(MPU_9250_SENSOR_TYPE_ACC_Z);
   
-  LOG_INFO("mvmt read: %d %d %d\n", accx, accy, accz);
-
+  LOG_INFO("mvmt read: %d %d %d\n", 
+           last_acc[LAST_ACC_X], last_acc[LAST_ACC_Y], last_acc[LAST_ACC_Z]);
   SENSORS_DEACTIVATE(mpu_9250_sensor);
-
-  return accx*accx + accy*accy + accz*accz;
 }
 
 
@@ -62,8 +61,8 @@ int get_movement() {
 
 #include MOVEMENT_FILE
 
-
 #define SENSOR_STARTUP_DELAY      5
+#define READING_ERROR             ((int)0x80000000)
 
 
 process_event_t fakesens_event = PROCESS_EVENT_NONE;
@@ -84,22 +83,38 @@ void init_movement_reading(void *not_used)
 }
 
 
-int get_movement()
+void platform_get_movement(void)
 {
   static int mov_idx = 0;
 
-  int accx = movements[mov_idx][0];
-  int accy = movements[mov_idx][1];
-  int accz = movements[mov_idx][2];
+  last_acc[LAST_ACC_X] = movements[mov_idx][0];
+  last_acc[LAST_ACC_Y] = movements[mov_idx][1];
+  last_acc[LAST_ACC_Z] = movements[mov_idx][2];
 
   if(mov_idx < MOVEMENTS-1) {
     mov_idx++;
   } else {
     mov_idx = 0;
   }
-    
-  return accx*accx + accy*accy + accz*accz;
 }
 
 
 #endif
+
+
+int get_movement()
+{
+  platform_get_movement();
+  
+  if (last_acc[LAST_ACC_X] == READING_ERROR || 
+      last_acc[LAST_ACC_Y] == READING_ERROR || 
+      last_acc[LAST_ACC_Z] == READING_ERROR) {
+    return -1;
+  }
+  
+  return last_acc[LAST_ACC_X]*last_acc[LAST_ACC_X] + 
+         last_acc[LAST_ACC_Y]*last_acc[LAST_ACC_Y] + 
+         last_acc[LAST_ACC_Z]*last_acc[LAST_ACC_Z];
+}
+
+
