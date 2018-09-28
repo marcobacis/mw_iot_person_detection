@@ -323,22 +323,23 @@ PROCESS_THREAD(client_process, ev, data)
           set_led_pattern(LEDS_RED, 0b000000010001, 12);
           next_wake = NET_CONNECT_PERIODIC;
         } else {
-          LOG_INFO("No IP address; ");
           if (is_moving) {
-            LOG_INFO("we are moving; stop trying\n");
+            LOG_INFO("No IP address; we are moving; stop trying\n");
             mqtt_state = MQTT_STATE_IDLE;
           } else {
-            LOG_INFO("retrying in a short while\n");
+            LOG_INFO("No IP address; retrying in a short while\n");
             next_wake = RECONNECT_INTERVAL;
           }
           set_led_pattern(LEDS_RED, 0b01, 0);
         }
         break;
 
+
       /* Waiting for connection established MQTT event */
       case MQTT_STATE_CONNECTING:
         LOG_INFO("Still connecting: retry %u...\n", connect_attempt);
         break;
+        
         
       /* Disconnected after attempting an MQTT connection */
       case MQTT_STATE_RETRY_CONNECTION:
@@ -347,7 +348,7 @@ PROCESS_THREAD(client_process, ev, data)
         
         if (is_moving) {
           mqtt_state = MQTT_STATE_IDLE;
-          LOG_INFO("We did move; stop trying to connect");
+          LOG_INFO("We did move; stop trying to connect\n");
           
         } else  {
           /* Disconnect and backoff */
