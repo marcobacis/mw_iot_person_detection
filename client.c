@@ -306,14 +306,18 @@ PROCESS_THREAD(client_process, ev, data)
     LOG_DBG("MQTT thread exec state %d\n", mqtt_state);
     
     switch(mqtt_state) {
+    
       /* Disconnected; waiting for connection-triggering event */
       case MQTT_STATE_IDLE:
         set_led_pattern(LEDS_RED, 0, 0);
+        NETSTACK_RADIO.off();
         break;
+
 
       /* Connection-triggering event received; try connecting */
       case MQTT_STATE_INIT:
         LOG_INFO("MQTT initialization\n");
+        NETSTACK_RADIO.on();
         
         /* If we have just been configured register MQTT connection */
         mqtt_register(&conn, &client_process, client_id(), mqtt_event,
@@ -372,6 +376,7 @@ PROCESS_THREAD(client_process, ev, data)
         }
         break;
 
+
       /* Connected successfully */
       case MQTT_STATE_CONNECTED:
         /* If the timer expired, the connection is stable. */
@@ -409,12 +414,15 @@ PROCESS_THREAD(client_process, ev, data)
         }
         break;
         
+      
+      /* Device started moving again; disconnect */
       case MQTT_STATE_DISCONNECT:
         set_led_pattern(LEDS_RED, 0b0101, 0);
         LOG_INFO("Disconnecting MQTT\n");
         mqtt_disconnect(&conn);
         mqtt_state = MQTT_STATE_IDLE;
         break;
+
 
       /* Should never happen */
       default:
