@@ -197,6 +197,7 @@ static void publish(void)
 PROCESS_THREAD(mqtt_monitor_process, ev, data)
 {
   static struct etimer acc_timer;
+  static int old_movement = 0;
   
   PROCESS_BEGIN();
   
@@ -204,43 +205,51 @@ PROCESS_THREAD(mqtt_monitor_process, ev, data)
   mvmt_state_change = process_alloc_event();
   init_movement_reading(NULL);
   
+  etimer_set(&acc_timer, 0);
+  
   while (1) {
-    PROCESS_YIELD();
+    do {
+      PROCESS_YIELD();
+    } while (ev != PROCESS_EVENT_TIMER && data != &acc_timer);
+    
+    init_movement_reading(NULL);
+    do {
+      PROCESS_YIELD();
+    } while (!movement_ready(ev, data));
+    
     clock_time_t next_wake;
     
-    if (movement_ready(ev, data)) {
-      int mov = get_movement();
-      set_led_pattern(LEDS_GREEN, 0b1, 0);
-      LOG_INFO("Read movement of %d Gs\n", mov);
+    #if !DISABLE_MOVEMENT_SLEEP
+    int mov = ABS(get_movement() - GRAVITY*GRAVITY);
+    set_led_pattern(LEDS_GREEN, 0b1, 0);
+    LOG_INFO("is_moving = %d, read movement of %d Gs\n", is_moving, mov);
+    
+    int moving_rn = mov >= T_MOD || ABS(mov - old_movement) >= T_DMOD;
+    old_movement = mov;
+    #else
+    int moving_rn = 0;
+    #endif
+    
+    if(!is_moving && moving_rn) {
+      LOG_INFO("User started moving.\n");
+      is_moving = 1;
+      process_post(&client_process, mvmt_state_change, NULL);
+      next_wake = MOVEMENT_PERIOD;
       
-      char moving_rn = mov > T_HIGH || mov < T_LOW;
+    } else if(is_moving && !moving_rn) {
+      LOG_INFO("User stopped moving.\n");
+      is_moving = 0;
+      process_post(&client_process, mvmt_state_change, NULL);
+      next_wake = G;
       
-      if(!is_moving && moving_rn) {
-        LOG_INFO("User started moving.\n");
-        is_moving = 1;
-        process_post(&client_process, mvmt_state_change, NULL);
-        next_wake = MOVEMENT_PERIOD;
-        
-      } else if(is_moving && !moving_rn) {
-        LOG_INFO("User stopped moving.\n");
-        is_moving = 0;
-        process_post(&client_process, mvmt_state_change, NULL);
-        next_wake = G;
-        
-      } else if (is_moving) {
-        next_wake = MOVEMENT_PERIOD;
-        
-      } else {
-        next_wake = G;
-        
-      }
-      etimer_set(&acc_timer, next_wake);
+    } else if (is_moving) {
+      next_wake = MOVEMENT_PERIOD;
       
-      do {
-        PROCESS_YIELD();
-      } while (ev != PROCESS_EVENT_TIMER && data != &acc_timer);
-      init_movement_reading(NULL);
+    } else {
+      next_wake = MOVEMENT_PERIOD;
+      
     }
+    etimer_reset_with_new_interval(&acc_timer, next_wake);
   }
   
   PROCESS_END();
@@ -415,7 +424,7 @@ PROCESS_THREAD(client_process, ev, data)
 
     /* Reschedule ourselves */
     if (next_wake > 0) {
-      etimer_set(&mqtt_publish_timer, next_wake);
+      etimer_reset_with_new_interval(&mqtt_publish_timer, next_wake);
       LOG_DBG("MQTT thd next wake = %ld\n", next_wake);
     } else {
       force_wait = 0;

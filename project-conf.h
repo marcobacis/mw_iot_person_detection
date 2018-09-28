@@ -1,45 +1,23 @@
-/*---------------------------------------------------------------------------*/
+
 #ifndef PROJECT_CONF_H_
 #define PROJECT_CONF_H_
-/*---------------------------------------------------------------------------*/
-/* Disable PROP_MODE */
+
+
+/*
+ * NETWORK OPTIONS
+ */
+
+/* Disable PROP_MODE (Low-GHz non-standard IEEE 802.15.4, only for 
+ * CC13xx boards) */
 #define CC13XX_CONF_PROP_MODE 0
 
-/* Enables energest for energy consumption time logging (only software) */
-//#define ENERGEST_CONF_ON 1
-#define ENERGEST_CONF_CURRENT_TIME clock_time
-#define ENERGEST_CONF_TIME_T clock_time_t
-#define ENERGEST_CONF_SECOND CLOCK_SECOND
-#define ENERGEST_LOG_DELAY 60 * CLOCK_SECOND
-
-// Enables TCP
+/* Enable TCP */
 #define UIP_CONF_TCP 1
 
+/* If this node must stay a leaf or not */
 #define RPL_CONF_LEAF_ONLY 1
 
-// Project-related defines
-
-//Threshold to identify movement
-#define T_HIGH 101*101  // G + 1%G
-#define T_LOW  95*95
-
-
-//Movement reading period
-#define MOVEMENT_PERIOD (10 * CLOCK_SECOND)
-
-#define MOVEMENT_FILE "acceleration.h"
-
-//Period to send mqtt messages when connected & not moving (seconds)
-#define K (10 * CLOCK_SECOND)
-
-//Time to wait before checking if the person is moving (seconds)
-#ifdef CONTIKI_TARGET_NATIVE
-#define G (20 * CLOCK_SECOND)
-#else
-#define G (2 * CLOCK_SECOND)
-#endif
-
-//MQTT-specific defines
+/* MQTT configuration */
 #define MQTT_PUBLISH_TOPIC_PREFIX   "iot/position/"
 #define MQTT_BROKER_IP_ADDR         "aaaa::1"
 #define MQTT_BROKER_PORT            1883
@@ -47,11 +25,64 @@
 #define MQTT_AUTH_TOKEN             "AUTHZ"
 #define MQTT_SUBSCRIBE_CMD_TYPE     "+"
 
-
+/* Connection setup parameters */
 #define RECONNECT_ATTEMPTS         2
 #define CONNECTION_STABLE_TIME     (CLOCK_SECOND * 5)
 
-// Logging defines
+
+/*
+ * ENERGEST CONFIGURATION
+ */
+ 
+#ifndef ENERGEST_CONF_ON
+#define ENERGEST_CONF_ON 0
+#endif
+
+#define ENERGEST_CONF_CURRENT_TIME clock_time
+#define ENERGEST_CONF_TIME_T clock_time_t
+#define ENERGEST_CONF_SECOND CLOCK_SECOND
+#define ENERGEST_LOG_DELAY 60 * CLOCK_SECOND
+
+
+/*
+ * MOVEMENT CHECKING OPTIONS
+ */
+ 
+/* If set to 1, disables sleeping when movement is detected. Useful for
+ * collecting sensor data. */
+#define DISABLE_MOVEMENT_SLEEP 0
+
+/* Acceleration thresholds */
+#define GRAVITY 100
+#define T_MOD   1000
+#define T_DMOD  500
+
+/* Movement reading period */
+#ifdef CONTIKI_TARGET_NATIVE
+#define MOVEMENT_PERIOD (CLOCK_SECOND / 2)
+#else
+#define MOVEMENT_PERIOD (10 * CLOCK_SECOND)
+#endif
+
+/* Acceleration script file to use for plaforms without an accelerometer */
+#define MOVEMENT_FILE "acceleration.h"
+
+/* Period of periodic MQTT messages sent when connected & not moving */
+#define K (CLOCK_SECOND / 2)
+
+/* Time to wait before resuming accelerometer polling after the device has
+ * just stopped moving */
+#ifdef CONTIKI_TARGET_NATIVE
+#define G (CLOCK_SECOND / 2)
+#else
+#define G (50 * CLOCK_SECOND)
+#endif
+
+
+/*
+ * LOGGING
+ */
+
 /*#define LOG_CONF_LEVEL_IPV6                        LOG_LEVEL_INFO
 #define LOG_CONF_LEVEL_RPL                         LOG_LEVEL_INFO
 #define LOG_CONF_LEVEL_6LOWPAN                     LOG_LEVEL_INFO
@@ -59,6 +90,6 @@
 #define LOG_CONF_LEVEL_MAC                         LOG_LEVEL_DBG
 #define LOG_CONF_LEVEL_FRAMER                      LOG_LEVEL_DBG
 */
-/*---------------------------------------------------------------------------*/
+
+
 #endif /* PROJECT_CONF_H_ */
-/*---------------------------------------------------------------------------*/

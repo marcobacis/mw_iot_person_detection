@@ -64,6 +64,7 @@ void led_report_init(void)
 {
   leds_init();
   memset(led_patterns, 0, sizeof(led_pattern_info_t) * NUM_LEDS);
+  etimer_set(&led_timer, 0);
   process_start(&led_report_process, NULL);
 }
 
@@ -72,7 +73,11 @@ PROCESS_THREAD(led_report_process, ev, data)
 {
   PROCESS_BEGIN();
   
-  while (1) {
+  while (ev != PROCESS_EVENT_EXIT) {
+    PROCESS_YIELD();
+    if (ev != PROCESS_EVENT_TIMER)
+      continue;
+  
     unsigned char leds_state = 0;
     uint32_t all_transitions = 0;
     
@@ -99,13 +104,11 @@ PROCESS_THREAD(led_report_process, ev, data)
         wait_quantums++;
       } 
   
-      etimer_set(&led_timer, LED_PERIOD * (wait_quantums + 1));
+      etimer_reset_with_new_interval(&led_timer, LED_PERIOD * (wait_quantums + 1));
     }
-    
-    do {
-      PROCESS_YIELD();
-    } while (ev != PROCESS_EVENT_TIMER);
   }
+  
+  leds_set(0);
   
   PROCESS_END();
 }
