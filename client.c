@@ -329,6 +329,7 @@ PROCESS_THREAD(client_process, ev, data)
           } else {
             LOG_INFO("No IP address; retrying in a short while\n");
             next_wake = RECONNECT_INTERVAL;
+            force_wait = 1;
           }
           set_led_pattern(LEDS_RED, 0b01, 0);
         }
