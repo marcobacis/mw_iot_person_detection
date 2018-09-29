@@ -71,16 +71,16 @@
 
 /* Movement reading period */
 #ifdef CONTIKI_TARGET_NATIVE
-#define MOVEMENT_PERIOD (CLOCK_SECOND / 2)
+#define MOVEMENT_PERIOD (CLOCK_SECOND)
 #else
-#define MOVEMENT_PERIOD (10 * CLOCK_SECOND)
+#define MOVEMENT_PERIOD (3 * CLOCK_SECOND)
 #endif
 
 /* Acceleration script file to use for plaforms without an accelerometer */
 #define MOVEMENT_FILE "acceleration.h"
 
 /* Period of periodic MQTT messages sent when connected & not moving */
-#define K (CLOCK_SECOND / 2)
+#define K (CLOCK_SECOND * 10)
 
 /* Time to wait before resuming accelerometer polling after the device has
  * just stopped moving */
