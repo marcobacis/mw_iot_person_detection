@@ -41,10 +41,10 @@
  * We want short RPL lifetime and probing interval because we expect network
  * disconnections and reconnections to be frequent */
 #define RPL_CONF_DEFAULT_LIFETIME_UNIT      1
-#define RPL_CONF_DEFAULT_LIFETIME           10
-#define RPL_CONF_PROBING_INTERVAL           (5 * CLOCK_SECOND)
-#define RPL_CONF_DELAY_BEFORE_LEAVING       (5 * CLOCK_SECOND)
-#define RPL_CONF_DIS_INTERVAL               (5 * CLOCK_SECOND)
+#define RPL_CONF_DEFAULT_LIFETIME           60
+#define RPL_CONF_PROBING_INTERVAL           (2 * CLOCK_SECOND)
+#define RPL_CONF_DELAY_BEFORE_LEAVING       (15 * CLOCK_SECOND)
+#define RPL_CONF_DIS_INTERVAL               (15 * CLOCK_SECOND)
 #define RPL_CONF_NOPATH_REMOVAL_DELAY       60
 #define RPL_CONF_DAO_MAX_RETRANSMISSIONS    2
 #define RPL_CONF_DAO_RETRANSMISSION_TIMEOUT (2 * CLOCK_SECOND)
