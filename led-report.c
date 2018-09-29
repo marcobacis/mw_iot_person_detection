@@ -64,8 +64,10 @@ void led_report_init(void)
 {
   leds_init();
   memset(led_patterns, 0, sizeof(led_pattern_info_t) * NUM_LEDS);
-  etimer_set(&led_timer, 0);
   process_start(&led_report_process, NULL);
+  PROCESS_CONTEXT_BEGIN(&led_report_process);
+  etimer_set(&led_timer, 0);
+  PROCESS_CONTEXT_END(&led_report_process);
 }
 
 
