@@ -15,13 +15,14 @@
 #include "net/ipv6/sicslowpan.h"
 #include "dev/leds.h"
 #include "sys/log.h"
+#include "lc.h"
 #include "movement.h"
 #include "energest-log.h"
 #include "led-report.h"
 
 
 #define LOG_MODULE "PD Client"
-#define LOG_LEVEL LOG_LEVEL_INFO
+#define LOG_LEVEL LOG_LEVEL_DBG
 
 
 static char mqtt_connected;
@@ -33,7 +34,7 @@ process_event_t mvmt_state_change;
 
 
 PROCESS(client_process, "mw-iot-person-detection main");
-PROCESS(mqtt_monitor_process, "mw-iot-person-detection mqtt monitor");
+PROCESS(movement_monitor_process, "mw-iot-person-detection mqtt monitor");
 
 #if ENERGEST_CONF_ON == 1
   AUTOSTART_PROCESSES(&client_process, &energest_process);
@@ -46,20 +47,8 @@ PROCESS(mqtt_monitor_process, "mw-iot-person-detection mqtt monitor");
 #define MQTT_MAX_CONTENT_LENGTH 256
 
 
-/* A timeout used when waiting for something to happen (e.g. to connect or to
- * disconnect) */
-#define STATE_MACHINE_PERIODIC     (CLOCK_SECOND >> 1)
-
-/* Connections and reconnections */
-#define RETRY_FOREVER              0xFF
-#define RECONNECT_INTERVAL         (CLOCK_SECOND * 2)
-
-
-static struct timer connection_life;
-
-
 /* A timeout used when waiting to connect to a network */
-#define NET_CONNECT_PERIODIC        (CLOCK_SECOND >> 2)
+#define NET_CONNECT_PERIODIC        (CLOCK_SECOND * 5)
 
 
 /* Maximum TCP segment size for outgoing segments of our socket */
@@ -69,7 +58,6 @@ static struct timer connection_life;
 static struct mqtt_connection conn;
 
 
-static struct etimer mqtt_publish_timer;
 static uint16_t seq_nr_value = 0;
 
 
@@ -140,7 +128,6 @@ static void mqtt_event(struct mqtt_connection *m, mqtt_event_t event, void *data
   switch(event) {
     case MQTT_EVENT_CONNECTED:
       LOG_INFO("Application has a MQTT connection!\n");
-      timer_set(&connection_life, CONNECTION_STABLE_TIME);
       process_post(&client_process, mqtt_did_connect, NULL);
       break;
     
@@ -194,7 +181,7 @@ static void publish(void)
 }
 
 
-PROCESS_THREAD(mqtt_monitor_process, ev, data)
+PROCESS_THREAD(movement_monitor_process, ev, data)
 {
   static struct etimer acc_timer;
   static int old_movement = 0;
@@ -210,17 +197,20 @@ PROCESS_THREAD(mqtt_monitor_process, ev, data)
   while (1) {
     do {
       PROCESS_YIELD();
+      LOG_DBG("wait timer ev=%x data=%p\n", ev, data);
     } while (ev != PROCESS_EVENT_TIMER && data != &acc_timer);
     
     init_movement_reading(NULL);
     do {
       PROCESS_YIELD();
+      LOG_DBG("wait movement_ready ev=%x data=%p\n", ev, data);
     } while (!movement_ready(ev, data));
     
     clock_time_t next_wake;
     
     #if !DISABLE_MOVEMENT_SLEEP
-    int mov = ABS(get_movement() - GRAVITY*GRAVITY);
+    int raw_mov = get_movement();
+    int mov = ABS(raw_mov - GRAVITY*GRAVITY);
     set_led_pattern(LEDS_GREEN, 0b1, 0);
     LOG_INFO("is_moving = %d, read movement of %d Gs\n", is_moving, mov);
     
@@ -249,24 +239,40 @@ PROCESS_THREAD(mqtt_monitor_process, ev, data)
       next_wake = MOVEMENT_PERIOD;
       
     }
-    etimer_reset_with_new_interval(&acc_timer, next_wake);
+    etimer_set(&acc_timer, next_wake);
   }
   
   PROCESS_END();
 }
 
 
+int rpl_is_reachable_2(void)
+{
+  #ifdef CONTIKI_TARGET_NATIVE
+  return 1;
+  #else
+  return rpl_is_reachable();
+  #endif
+}
+
+
 PROCESS_THREAD(client_process, ev, data)
 {
+  static int mqtt_fake_disconnect = 0;
+  static struct etimer timer;
   static int connect_attempt = 0;
   static enum {
     MQTT_STATE_IDLE,
-    MQTT_STATE_INIT,
-    MQTT_STATE_CONNECTING,
-    MQTT_STATE_RETRY_CONNECTION,
-    MQTT_STATE_CONNECTED,
-    MQTT_STATE_DISCONNECT
-  } mqtt_state = MQTT_STATE_INIT;
+    MQTT_STATE_RADIO_ON,
+    MQTT_STATE_WAIT_IP,
+    MQTT_STATE_CONNECT_MQTT,
+    MQTT_STATE_WAIT_MQTT,
+    MQTT_STATE_CONNECTED_PUBLISH,
+    MQTT_STATE_CONNECTED_WAIT_PUBLISH,
+    MQTT_STATE_DISCONNECT,
+    MQTT_STATE_DISCONNECT_2,
+    MQTT_STATE_DISCONNECT_3
+  } mqtt_state = MQTT_STATE_IDLE;
   
   PROCESS_BEGIN();
   
@@ -274,51 +280,115 @@ PROCESS_THREAD(client_process, ev, data)
   log_set_level("tcpip", LOG_LEVEL_DBG);
   
   led_report_init();
-  process_start(&mqtt_monitor_process, NULL);
+  process_start(&movement_monitor_process, NULL);
   
   mqtt_connected = 0;
   mqtt_did_connect = process_alloc_event();
   mqtt_did_disconnect = process_alloc_event();
 
-  etimer_set(&mqtt_publish_timer, STATE_MACHINE_PERIODIC);
+  etimer_set(&timer, STATE_MACHINE_PERIODIC);
   
   while (1) {
-    static char force_wait = 0;
-    clock_time_t next_wake = 0;
-    
-    /* Externally triggered transitions */
-    if (mqtt_state == MQTT_STATE_IDLE && !is_moving) {
-      mqtt_state = MQTT_STATE_INIT;
-      
-    } else if (mqtt_state == MQTT_STATE_CONNECTING && ev == mqtt_did_connect) {
-      mqtt_state = MQTT_STATE_CONNECTED;
-      
-    } else if (mqtt_state == MQTT_STATE_CONNECTING && ev == mqtt_did_disconnect) {
-      mqtt_state = MQTT_STATE_RETRY_CONNECTION;
-      
-    } else if (mqtt_state == MQTT_STATE_CONNECTED && is_moving) {
-      mqtt_state = MQTT_STATE_DISCONNECT;
-      
-    } else if (mqtt_state == MQTT_STATE_CONNECTED && ev == mqtt_did_disconnect) {
-      mqtt_state = MQTT_STATE_IDLE;
+    /* Transitions */
+    switch (mqtt_state) {
+      case MQTT_STATE_IDLE:
+        if (!is_moving) {
+          mqtt_state = MQTT_STATE_RADIO_ON;
+        }
+        break;
+        
+      case MQTT_STATE_RADIO_ON:
+        mqtt_state = MQTT_STATE_WAIT_IP;
+        break;
+        
+      case MQTT_STATE_WAIT_IP: {
+        int reachable = rpl_is_reachable_2();
+        uip_ds6_addr_t *ip = uip_ds6_get_global(ADDR_PREFERRED);
+        LOG_INFO("rpl is reachable = %d\n", reachable);
+        LOG_INFO("uip_ds6_get_global(ADDR_PREFERRED) == %p\n", ip);
+        if (ip != NULL && reachable) {
+          mqtt_state = MQTT_STATE_CONNECT_MQTT;
+        }
+        break;
+      }
+        
+      case MQTT_STATE_CONNECT_MQTT:
+        mqtt_state = MQTT_STATE_WAIT_MQTT;
+
+      case MQTT_STATE_WAIT_MQTT:
+        if (ev == mqtt_did_connect) {
+          LOG_INFO("Connected!\n");
+          mqtt_fake_disconnect = 0;
+          mqtt_state = MQTT_STATE_CONNECTED_PUBLISH;
+        } else if (ev == mqtt_did_disconnect) {
+          mqtt_state = MQTT_STATE_WAIT_IP;
+        }
+        break;
+        
+      case MQTT_STATE_CONNECTED_PUBLISH:
+        mqtt_state = MQTT_STATE_CONNECTED_WAIT_PUBLISH;
+        break;
+        
+      case MQTT_STATE_CONNECTED_WAIT_PUBLISH:
+        if (ev == PROCESS_EVENT_TIMER && data == &timer) {
+          mqtt_state = MQTT_STATE_CONNECTED_PUBLISH;
+        }
+        break;
+        
+      case MQTT_STATE_DISCONNECT_2:
+      case MQTT_STATE_DISCONNECT:
+        LOG_INFO("mqtt state = %d\n", conn.state);
+        if (conn.state == MQTT_CONN_STATE_NOT_CONNECTED || mqtt_fake_disconnect)
+          mqtt_state = MQTT_STATE_DISCONNECT_3;
+        else
+          mqtt_state = MQTT_STATE_DISCONNECT_2;
+        break;
+        
+      case MQTT_STATE_DISCONNECT_3:
+        mqtt_state = MQTT_STATE_IDLE;
+        break;
     }
     
-    LOG_DBG("MQTT thread exec state %d\n", mqtt_state);
+    if (is_moving && 
+        mqtt_state != MQTT_STATE_IDLE && 
+        mqtt_state != MQTT_STATE_DISCONNECT && 
+        mqtt_state != MQTT_STATE_DISCONNECT_2 &&
+        mqtt_state != MQTT_STATE_DISCONNECT_3) {
+      LOG_INFO("Resetting MQTT state machine\n");
+      mqtt_state = MQTT_STATE_DISCONNECT;
+    }
     
+    if (mqtt_state == MQTT_STATE_CONNECTED_PUBLISH || 
+        mqtt_state == MQTT_STATE_CONNECTED_WAIT_PUBLISH) {
+      if (ev == mqtt_did_disconnect || !rpl_is_reachable_2()) {
+        LOG_INFO("MQTT disconnected...\n");
+        mqtt_state = MQTT_STATE_WAIT_IP;
+      }
+    }
+        
+    /* States */
     switch(mqtt_state) {
-    
-      /* Disconnected; waiting for connection-triggering event */
       case MQTT_STATE_IDLE:
-        set_led_pattern(LEDS_RED, 0, 0);
-        NETSTACK_RADIO.off();
         break;
 
-
-      /* Connection-triggering event received; try connecting */
-      case MQTT_STATE_INIT:
-        LOG_INFO("MQTT initialization\n");
+      case MQTT_STATE_RADIO_ON:
+        LOG_INFO("Turning radio on\n");
         NETSTACK_RADIO.on();
+        NETSTACK_MAC.on();
+        etimer_set(&timer, STATE_MACHINE_PERIODIC);
+        break;
         
+      case MQTT_STATE_WAIT_IP:
+        set_led_pattern(LEDS_RED, 0b01, 0);
+        LOG_INFO("Waiting IP address\n");
+        etimer_set(&timer, STATE_MACHINE_PERIODIC);
+        break;
+        
+      case MQTT_STATE_CONNECT_MQTT:
+        connect_attempt++;
+        set_led_pattern(LEDS_RED, 0b000000010001, 12);
+        LOG_INFO("We have an IP; connection attempt %d to MQTT\n", connect_attempt);
+      
         /* If we have just been configured register MQTT connection */
         mqtt_register(&conn, &client_process, client_id(), mqtt_event,
                       MAX_TCP_SEGMENT_SIZE);
@@ -326,122 +396,61 @@ PROCESS_THREAD(client_process, ev, data)
         
         /* _register() will set auto_reconnect. We don't want that. */
         conn.auto_reconnect = 0;
-        connect_attempt = 1;
 
-        if (uip_ds6_get_global(ADDR_PREFERRED) != NULL) {
-          /* Registered and with a global IPv6 address, connect! */
-          LOG_INFO("Connect attempt %u\n", connect_attempt);
-          mqtt_connect(&conn, MQTT_BROKER_IP_ADDR, MQTT_BROKER_PORT, K * 3);
-          mqtt_state = MQTT_STATE_CONNECTING;
-          set_led_pattern(LEDS_RED, 0b000000010001, 12);
-          next_wake = NET_CONNECT_PERIODIC;
-        } else {
-          if (is_moving) {
-            LOG_INFO("No IP address; we are moving; stop trying\n");
-            mqtt_state = MQTT_STATE_IDLE;
-          } else {
-            LOG_INFO("No IP address; retrying in a short while\n");
-            next_wake = RECONNECT_INTERVAL;
-            force_wait = 1;
-          }
-          set_led_pattern(LEDS_RED, 0b01, 0);
-        }
-        break;
-
-
-      /* Waiting for connection established MQTT event */
-      case MQTT_STATE_CONNECTING:
-        LOG_INFO("Still connecting: retry %u...\n", connect_attempt);
+        mqtt_connect(&conn, MQTT_BROKER_IP_ADDR, MQTT_BROKER_PORT, K * 3);
         break;
         
-        
-      /* Disconnected after attempting an MQTT connection */
-      case MQTT_STATE_RETRY_CONNECTION:
-        set_led_pattern(LEDS_RED, 0b00010101, 0);
-        LOG_INFO("Disconnected\n");
-        
-        if (is_moving) {
-          mqtt_state = MQTT_STATE_IDLE;
-          LOG_INFO("We did move; stop trying to connect\n");
-          
-        } else  {
-          /* Disconnect and backoff */
-          mqtt_disconnect(&conn);
-          connect_attempt++;
-          LOG_INFO("Disconnected: attempt %u in %d ticks\n", connect_attempt, RECONNECT_INTERVAL);
-
-          next_wake = RECONNECT_INTERVAL;
-          force_wait = 1;
-          mqtt_state = MQTT_STATE_INIT;
-        }
+      case MQTT_STATE_WAIT_MQTT:
+        LOG_INFO("Waiting MQTT connection\n");
         break;
-
-
-      /* Connected successfully */
-      case MQTT_STATE_CONNECTED:
-        /* If the timer expired, the connection is stable. */
-        if (timer_expired(&connection_life)) {
-          connect_attempt = 0;
-        }
-
-        if (ev != PROCESS_EVENT_TIMER && ev != mqtt_did_connect)
-          break;
-          
+        
+      case MQTT_STATE_CONNECTED_PUBLISH:
         LOG_INFO("Should publish\n");
-        if(mqtt_ready(&conn) && conn.out_buffer_sent) {
-          /* Connected. Publish */
+        if (mqtt_ready(&conn) && conn.out_buffer_sent) {
           set_led_pattern(LEDS_RED | LEDS_GREEN, 0b0101, 0);
           publish();
-          next_wake = K;
-          
         } else {
-          /* Our publish timer fired, but some MQTT packet is already in flight
-           * (either not sent at all, or sent but not fully ACKd).
-           *
-           * This can mean that we have lost connectivity to our broker or that
-           * simply there is some network delay. In both cases, we refuse to
-           * trigger a new message and we wait for TCP to either ACK the entire
-           * packet after retries, or to timeout and notify us. */
-          set_led_pattern(LEDS_RED, 0b0101, 0);
-          if(!mqtt_connected(&conn) || !rpl_is_reachable()) {
-            LOG_INFO("mqtt disconnected...\n");
-            mqtt_state = MQTT_STATE_IDLE;
-          } else {
-            LOG_INFO("Still publishing... (MQTT state=%d, q=%u)\n", conn.state,
-              conn.out_queue_full);
-            next_wake = K;
-          }
+          LOG_INFO("Still publishing... (MQTT state=%d, q=%u)\n", conn.state,
+            conn.out_queue_full);
+        }
+        etimer_set(&timer, K);
+        break;
+        
+      case MQTT_STATE_CONNECTED_WAIT_PUBLISH:
+        break;
+
+      case MQTT_STATE_DISCONNECT:
+        set_led_pattern(LEDS_RED, 0b00010101, 0);
+        LOG_INFO("Disconnecting MQTT\n");
+        if (conn.state == MQTT_CONN_STATE_CONNECTED_TO_BROKER)
+          mqtt_disconnect(&conn);
+        else {
+          /* When mqtt_disconnect is called on a non-completely-connected
+           * MQTT connection object, the MQTT thread goes in an inconsistent
+           * state, but we still have to do something about this */
+          LOG_INFO("MQTT is not connected; skipping");
+          mqtt_fake_disconnect = 1;
         }
         break;
         
-      
-      /* Device started moving again; disconnect */
-      case MQTT_STATE_DISCONNECT:
-        set_led_pattern(LEDS_RED, 0b0101, 0);
-        LOG_INFO("Disconnecting MQTT\n");
-        mqtt_disconnect(&conn);
-        mqtt_state = MQTT_STATE_IDLE;
+      case MQTT_STATE_DISCONNECT_2:
         break;
-
+        
+      case MQTT_STATE_DISCONNECT_3:
+        LOG_INFO("Shutting down radio\n");
+        rpl_dag_leave();
+        NETSTACK_MAC.off();
+        NETSTACK_RADIO.off();
+        break;
 
       /* Should never happen */
       default:
         LOG_INFO("Default case: State=0x%02x\n", mqtt_state);
         break;
     }
-
-    /* Reschedule ourselves */
-    if (next_wake > 0) {
-      etimer_reset_with_new_interval(&mqtt_publish_timer, next_wake);
-      LOG_DBG("MQTT thd next wake = %ld\n", next_wake);
-    } else {
-      force_wait = 0;
-    }
-    do {
-      PROCESS_YIELD();
-      LOG_DBG("MQTT thd woke, force_wait = %d, ev = 0x%02X, data = %p\n", force_wait, ev, data);
-    } while (force_wait && ev != PROCESS_EVENT_TIMER);
-    force_wait = 0;
+    
+    PROCESS_YIELD();
+    LOG_DBG("MQTT thd woke, state=%d, ev=0x%02X, data=%p\n", mqtt_state, ev, data);
   }
   
   PROCESS_END();

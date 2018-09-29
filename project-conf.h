@@ -29,6 +29,26 @@
 #define RECONNECT_ATTEMPTS         2
 #define CONNECTION_STABLE_TIME     (CLOCK_SECOND * 5)
 
+/* A timeout used when waiting for something to happen (e.g. to connect or to
+ * disconnect) */
+#define STATE_MACHINE_PERIODIC     (CLOCK_SECOND)
+
+/* Connections and reconnections */
+#define RETRY_FOREVER              0xFF
+#define RECONNECT_INTERVAL         (CLOCK_SECOND * 2)
+
+/* RPL configuration
+ * We want short RPL lifetime and probing interval because we expect network
+ * disconnections and reconnections to be frequent */
+#define RPL_CONF_DEFAULT_LIFETIME_UNIT      1
+#define RPL_CONF_DEFAULT_LIFETIME           10
+#define RPL_CONF_PROBING_INTERVAL           (5 * CLOCK_SECOND)
+#define RPL_CONF_DELAY_BEFORE_LEAVING       (5 * CLOCK_SECOND)
+#define RPL_CONF_DIS_INTERVAL               (5 * CLOCK_SECOND)
+#define RPL_CONF_NOPATH_REMOVAL_DELAY       60
+#define RPL_CONF_DAO_MAX_RETRANSMISSIONS    2
+#define RPL_CONF_DAO_RETRANSMISSION_TIMEOUT (2 * CLOCK_SECOND)
+
 
 /*
  * ENERGEST CONFIGURATION
