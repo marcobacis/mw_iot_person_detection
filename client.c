@@ -47,10 +47,6 @@ PROCESS(movement_monitor_process, "mw-iot-person-detection mqtt monitor");
 #define MQTT_MAX_CONTENT_LENGTH 256
 
 
-/* A timeout used when waiting to connect to a network */
-#define NET_CONNECT_PERIODIC        (CLOCK_SECOND * 5)
-
-
 /* Maximum TCP segment size for outgoing segments of our socket */
 #define MAX_TCP_SEGMENT_SIZE    16
 
@@ -260,7 +256,6 @@ PROCESS_THREAD(client_process, ev, data)
 {
   static int mqtt_fake_disconnect = 0;
   static struct etimer timer;
-  static int connect_attempt = 0;
   static enum {
     MQTT_STATE_IDLE,
     MQTT_STATE_RADIO_ON,
@@ -385,9 +380,8 @@ PROCESS_THREAD(client_process, ev, data)
         break;
         
       case MQTT_STATE_CONNECT_MQTT:
-        connect_attempt++;
         set_led_pattern(LEDS_RED, 0b000000010001, 12);
-        LOG_INFO("We have an IP; connection attempt %d to MQTT\n", connect_attempt);
+        LOG_INFO("We have an IP; connection attempt to MQTT\n");
       
         /* If we have just been configured register MQTT connection */
         mqtt_register(&conn, &client_process, client_id(), mqtt_event,

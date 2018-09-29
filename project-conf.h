@@ -25,17 +25,9 @@
 #define MQTT_AUTH_TOKEN             "AUTHZ"
 #define MQTT_SUBSCRIBE_CMD_TYPE     "+"
 
-/* Connection setup parameters */
-#define RECONNECT_ATTEMPTS         2
-#define CONNECTION_STABLE_TIME     (CLOCK_SECOND * 5)
-
 /* A timeout used when waiting for something to happen (e.g. to connect or to
  * disconnect) */
 #define STATE_MACHINE_PERIODIC     (CLOCK_SECOND)
-
-/* Connections and reconnections */
-#define RETRY_FOREVER              0xFF
-#define RECONNECT_INTERVAL         (CLOCK_SECOND * 2)
 
 /* RPL configuration
  * We want short RPL lifetime and probing interval because we expect network
