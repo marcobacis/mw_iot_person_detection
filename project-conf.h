@@ -41,6 +41,10 @@
 #define RPL_CONF_DAO_MAX_RETRANSMISSIONS    2
 #define RPL_CONF_DAO_RETRANSMISSION_TIMEOUT (2 * CLOCK_SECOND)
 
+/* Radio power setting in dBm
+ * Default is 5 dBm */
+#define CLIENT_RADIO_POWER_CONF       (-18)
+
 
 /*
  * ENERGEST CONFIGURATION

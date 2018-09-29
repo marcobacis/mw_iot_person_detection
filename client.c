@@ -272,8 +272,10 @@ PROCESS_THREAD(client_process, ev, data)
   
   log_set_level("main", LOG_LEVEL_DBG);
   log_set_level("tcpip", LOG_LEVEL_DBG);
+  log_set_level("rpl", LOG_LEVEL_DBG);
   
   led_report_init();
+  
   process_start(&movement_monitor_process, NULL);
   
   mqtt_connected = 0;
@@ -369,6 +371,7 @@ PROCESS_THREAD(client_process, ev, data)
         LOG_INFO("Turning radio on\n");
         NETSTACK_RADIO.on();
         NETSTACK_MAC.on();
+        NETSTACK_RADIO.set_value(RADIO_PARAM_TXPOWER, CLIENT_RADIO_POWER_CONF);
         etimer_set(&timer, STATE_MACHINE_PERIODIC);
         break;
         
