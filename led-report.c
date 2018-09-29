@@ -6,11 +6,10 @@
 #define LOG_MODULE "Leds"
 #ifdef CONTIKI_TARGET_NATIVE
 #define LOG_LEVEL LOG_LEVEL_DBG
+#define FANCY_PRINTF
 #else
 #define LOG_LEVEL LOG_LEVEL_INFO
 #endif
-
-#define FANCY_PRINTF
 
 // duration of a quantum (fastest possible LED blink)
 #define LED_PERIOD (CLOCK_SECOND / 20)
