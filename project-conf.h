@@ -60,6 +60,9 @@
  * MOVEMENT CHECKING OPTIONS
  */
  
+/* The delay between the power on of the device and actual start of operation */
+#define SETUP_WAIT  (CLOCK_SECOND * 5)
+ 
 /* If set to 1, disables sleeping when movement is detected. Useful for
  * collecting sensor data. */
 #define DISABLE_MOVEMENT_SLEEP 0

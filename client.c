@@ -186,9 +186,8 @@ PROCESS_THREAD(movement_monitor_process, ev, data)
   
   is_moving = 1;
   mvmt_state_change = process_alloc_event();
-  init_movement_reading(NULL);
   
-  etimer_set(&acc_timer, 0);
+  etimer_set(&acc_timer, SETUP_WAIT);
   
   while (1) {
     do {
