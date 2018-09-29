@@ -105,7 +105,7 @@ PROCESS_THREAD(led_report_process, ev, data)
         wait_quantums++;
       } 
   
-      etimer_reset_with_new_interval(&led_timer, LED_PERIOD * (wait_quantums + 1));
+      etimer_reset_with_new_interval(&led_timer, LED_PERIOD * wait_quantums);
     }
   }
   
