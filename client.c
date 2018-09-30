@@ -15,7 +15,10 @@
 #include "net/ipv6/sicslowpan.h"
 #include "dev/leds.h"
 #include "sys/log.h"
-#include "lc.h"
+#ifdef MAC_CONF_WITH_TSCH
+#include "tsch.h"
+#include "tsch-private.h"
+#endif
 #include "movement.h"
 #include "energest-log.h"
 #include "led-report.h"
@@ -282,6 +285,7 @@ PROCESS_THREAD(client_process, ev, data)
   log_set_level("main", LOG_LEVEL_DBG);
   log_set_level("tcpip", LOG_LEVEL_DBG);
   log_set_level("rpl", LOG_LEVEL_DBG);
+  log_set_level("mac", LOG_LEVEL_DBG);
   
   led_report_init();
   
@@ -378,6 +382,12 @@ PROCESS_THREAD(client_process, ev, data)
 
       case MQTT_STATE_RADIO_ON:
         LOG_INFO("Turning radio on\n");
+        #ifdef MAC_CONF_WITH_TSCH
+        /* TSCH-only: we know that probably we'll join a new network once we
+         * are back up, so we disassociate manually */
+        if (tsch_is_associated)
+          tsch_disassociate();
+        #endif
         NETSTACK_RADIO.on();
         NETSTACK_MAC.on();
         NETSTACK_RADIO.set_value(RADIO_PARAM_TXPOWER, CLIENT_RADIO_POWER_CONF);
@@ -446,6 +456,10 @@ PROCESS_THREAD(client_process, ev, data)
         rpl_dag_leave();
         NETSTACK_MAC.off();
         NETSTACK_RADIO.off();
+        /* TSCH-only issue: turning off MAC does not work for TSCH.
+         * If TSCH is still in scanning mode, then we are *wasting power* and
+         * we can do nothing about it because the TSCH stack is poorly written
+         * and patching it to stop operating is not easy. */
         break;
 
       /* Should never happen */

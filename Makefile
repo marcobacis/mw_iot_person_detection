@@ -1,13 +1,12 @@
 all: client
 
 
-MODULES += os/services/shell os/net/app-layer/mqtt 
+MODULES += os/net/app-layer/mqtt 
 
-#Uses tsch to have a better radio duty cycling
+#Use tsch to have a better radio duty cycling
 #MAKE_MAC = MAKE_MAC_TSCH
 
-CFLAGS += -Wno-nonnull-compare -Wno-implicit-function-declaration -DTARGET=$(TARGET)
-#BUILD_WITH_SHELL = 1
+CFLAGS += -Os -Wno-nonnull-compare -Wno-implicit-function-declaration -DTARGET=$(TARGET)
 
 PROJECT_SOURCEFILES = movement.c energest-log.c led-report.c
 
