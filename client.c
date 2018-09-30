@@ -151,16 +151,25 @@ static void publish(void)
   int remaining = MQTT_MAX_CONTENT_LENGTH;
 
   seq_nr_value++;
+  
+  int radio_rssi = -1000;
+  int radio_pwr = -1000;
+  NETSTACK_RADIO.get_value(RADIO_PARAM_RSSI, &radio_rssi);
+  NETSTACK_RADIO.get_value(RADIO_PARAM_TXPOWER, &radio_pwr);
 
   len = snprintf(app_buffer, remaining, 
     "{"
       "\"client_id\":\"%s\","
-      "\"seq_nr_value\":\"%d\","
-      "\"last_accel\":\"%d, %d, %d\""
+      "\"seq_nr_value\":%d,"
+      "\"last_accel\":[%d, %d, %d],"
+      "\"curr_radio_rssi\":%d,"
+      "\"curr_radio_power_dbm\":%d"
     "}", 
     client_id(), 
-    seq_nr_value, 
-    last_acc[LAST_ACC_X], last_acc[LAST_ACC_Y], last_acc[LAST_ACC_Z]); 
+    seq_nr_value,
+    last_acc[LAST_ACC_X], last_acc[LAST_ACC_Y], last_acc[LAST_ACC_Z],
+    radio_rssi,
+    radio_pwr); 
 
   if (len < 0 || len >= remaining) {
     LOG_ERR("Buffer too short. Have %d, need %d + \\0\n", remaining, len);
