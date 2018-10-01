@@ -51,6 +51,8 @@ PROCESS(movement_monitor_process, "mw-iot-person-detection mqtt monitor");
 
 
 #define MQTT_MAX_TOPIC_LENGTH 64
+static char pub_topic_cache[MQTT_MAX_TOPIC_LENGTH] = "";
+
 #define MQTT_MAX_CONTENT_LENGTH 256
 
 
@@ -89,26 +91,32 @@ int ipaddr_sprintf(char *buf, uint8_t buf_len, const uip_ipaddr_t *addr)
 }
 
 
-static char *pub_topic(void)
+static void update_pub_topic(void)
 {
-  static char topic[MQTT_MAX_TOPIC_LENGTH] = "";
-  char *ptopic = topic;
+  char *ptopic = pub_topic_cache;
   int left = MQTT_MAX_TOPIC_LENGTH;
   
   ptopic = stpncpy(ptopic, MQTT_PUBLISH_TOPIC_PREFIX, left);
-  left -= ptopic - topic;
+  left -= ptopic - pub_topic_cache;
   
   rpl_dag_t *dag = &curr_instance.dag;
   int len = ipaddr_sprintf(ptopic, left, &dag->dag_id);
   left -= len;
 
-  /* len < 0: Error. Len >= BUFFER_SIZE: Buffer too small */
   if (left <= 0) {
-    return MQTT_PUBLISH_TOPIC_PREFIX "unkroot";
+    /* ensure that pub_topic_cache is properly terminated even on overflow */
+    pub_topic_cache[MQTT_MAX_TOPIC_LENGTH-1] = '\0';
   }
 
-  LOG_INFO("MQTT topic change is \"%s\"\n", topic);
-  return topic;
+  LOG_INFO("MQTT topic is now \"%s\"\n", pub_topic_cache);
+}
+
+
+static char *pub_topic(void)
+{
+  if (pub_topic_cache[0] == '\0')
+    update_pub_topic();
+  return pub_topic_cache;
 }
 
 
@@ -209,7 +217,7 @@ PROCESS_THREAD(movement_monitor_process, ev, data)
     do {
       PROCESS_YIELD();
       LOG_DBG("wait timer ev=%x data=%p\n", ev, data);
-    } while (ev != PROCESS_EVENT_TIMER && data != &acc_timer);
+    } while (!etimer_expired(&acc_timer));
     
     init_movement_reading(NULL);
     do {
@@ -298,6 +306,10 @@ PROCESS_THREAD(client_process, ev, data)
   mqtt_connected = 0;
   mqtt_did_connect = process_alloc_event();
   mqtt_did_disconnect = process_alloc_event();
+  
+  /* Turn off MAC and radio for consistency with initial state = moving */
+  NETSTACK_MAC.off();
+  NETSTACK_RADIO.off();
 
   etimer_set(&timer, STATE_MACHINE_PERIODIC);
   
@@ -333,6 +345,7 @@ PROCESS_THREAD(client_process, ev, data)
           LOG_INFO("Connected!\n");
           mqtt_fake_disconnect = 0;
           mqtt_state = MQTT_STATE_CONNECTED_PUBLISH;
+          update_pub_topic();
         } else if (ev == mqtt_did_disconnect) {
           mqtt_state = MQTT_STATE_WAIT_IP;
         }
