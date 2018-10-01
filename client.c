@@ -307,6 +307,13 @@ PROCESS_THREAD(client_process, ev, data)
   mqtt_did_connect = process_alloc_event();
   mqtt_did_disconnect = process_alloc_event();
   
+  /* Register MQTT connection
+   * Registering MQTT multiple times causes memory corruption!! */
+  mqtt_register(&conn, &client_process, client_id(), mqtt_event, MAX_TCP_SEGMENT_SIZE);
+  mqtt_set_username_password(&conn, "use-token-auth", MQTT_AUTH_TOKEN);
+  /* _register() will set auto_reconnect. We don't want that. */
+  conn.auto_reconnect = 0;
+  
   /* Turn off MAC and radio for consistency with initial state = moving */
   NETSTACK_MAC.off();
   NETSTACK_RADIO.off();
@@ -420,14 +427,6 @@ PROCESS_THREAD(client_process, ev, data)
       case MQTT_STATE_CONNECT_MQTT:
         set_led_pattern(LEDS_RED, 0b000000010001, 12);
         LOG_INFO("We have an IP; connection attempt to MQTT\n");
-      
-        /* If we have just been configured register MQTT connection */
-        mqtt_register(&conn, &client_process, client_id(), mqtt_event,
-                      MAX_TCP_SEGMENT_SIZE);
-        mqtt_set_username_password(&conn, "use-token-auth", MQTT_AUTH_TOKEN);
-        
-        /* _register() will set auto_reconnect. We don't want that. */
-        conn.auto_reconnect = 0;
 
         mqtt_connect(&conn, MQTT_BROKER_IP_ADDR, MQTT_BROKER_PORT, K * 3);
         break;
