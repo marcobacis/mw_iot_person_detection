@@ -27,7 +27,8 @@ On macOS, first install tuntaposx, then:
 ../../tools/tunslip6 -L -v2 -t tun0 -s ttyACMx aaaa::1/64
 ```
 
-(the device names `/dev/ttyACMx` can change)
+The device names `/dev/ttyACMx` can change. If you plan to configure the client
+for TSCH, compile rpl-border-router-tsch instead.
 
 ### Step 2: flash client software on the SensorTag
 
@@ -43,6 +44,9 @@ Note: to not disable JTAG, go to
 ``contiki-ng-course/arch/cpu/cc26xx-cc13xx/lib/cc26xxware/startup_files/ccfg.c``, 
 and under ``// Debug access settings`` un-comment all lines which set the 
 registers to ``0xC5``. 
+
+To configure for TSCH, add the `MAKE_MAC=MAKE_MAC_TSCH` parameter when invoking
+`make`.
 
 ### Step 3: Profit
 
