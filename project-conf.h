@@ -103,6 +103,8 @@
 /*
  * LOGGING
  */
+ 
+#define ENABLE_LEDS       0
 
 #define LOG_CONF_LEVEL_PD_CLIENT                   LOG_LEVEL_ERR
 #define LOG_CONF_LEVEL_LED_REPORT                  LOG_LEVEL_ERR

@@ -18,6 +18,11 @@
 #define FANCY_PRINTF
 #endif
 
+#ifndef ENABLE_LEDS
+#define ENABLE_LEDS 1
+#endif
+
+
 // duration of a quantum (fastest possible LED blink)
 #define LED_PERIOD (CLOCK_SECOND / 20)
 #define NUM_LEDS   3
@@ -43,6 +48,9 @@ int wait_quantums = 0;
 
 void set_led_pattern(uint8_t leds, uint32_t pattern, uint8_t period)
 {
+  #if ENABLE_LEDS == 0
+  return;
+  #endif
   PROCESS_CONTEXT_BEGIN(&led_report_process);
   leds &= (1 << NUM_LEDS) - 1;
   
@@ -68,6 +76,9 @@ void set_led_pattern(uint8_t leds, uint32_t pattern, uint8_t period)
 
 void led_report_init(void)
 {
+  #if ENABLE_LEDS == 0
+  return;
+  #endif
   leds_init();
   memset(led_patterns, 0, sizeof(led_pattern_info_t) * NUM_LEDS);
   process_start(&led_report_process, NULL);
@@ -83,7 +94,7 @@ PROCESS_THREAD(led_report_process, ev, data)
   
   while (ev != PROCESS_EVENT_EXIT) {
     PROCESS_YIELD();
-    if (ev != PROCESS_EVENT_TIMER)
+    if (!etimer_expired(&led_timer))
       continue;
   
     unsigned char leds_state = 0;
