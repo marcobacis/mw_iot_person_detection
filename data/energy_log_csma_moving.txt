@@ -1,0 +1,32 @@
+using saved target 'srf06-cc26xx'
+../contiki-ng-course/tools/sky/serialdump-macos -b115200 /dev/cu.usbmodemL3002411
+[INFO: Energy Log] started
+[INFO: Main      ] Starting Contiki-NG-4d1dabbcd-dirty
+[INFO: Main      ]  Net: sicslowpan
+[INFO: Main      ]  MAC: CSMA
+[INFO: Main      ] Link-layer address 0012.4b00.0796.7c85
+[INFO: Main      ] Tentative link-local IPv6 address fe80::212:4b00:796:7c85
+[INFO: CC26xx/CC13xx] TI CC2650 SensorTag
+[INFO: CC26xx/CC13xx]  RF: Channel 25, PANID 0xABCD
+[INFO: CC26xx/CC13xx]  Node ID: 31877
+[INFO: Energy Log] started
+[INFO: Energy Log] CPU: Active 0 LPM: 0 Deep LPM: 59 Total time: 60 seconds
+[INFO: Energy Log] Radio: Listen: 0 Transmit: 0 seconds
+[INFO: Energy Log] CPU: Active 0 LPM: 0 Deep LPM: 119 Total time: 120 seconds
+[INFO: Energy Log] Radio: Listen: 0 Transmit: 0 seconds
+[INFO: Energy Log] CPU: Active 0 LPM: 0 Deep LPM: 178 Total time: 180 seconds
+[INFO: Energy Log] Radio: Listen: 0 Transmit: 0 seconds
+[INFO: Energy Log] CPU: Active 0 LPM: 0 Deep LPM: 238 Total time: 240 seconds
+[INFO: Energy Log] Radio: Listen: 0 Transmit: 0 seconds
+[INFO: Energy Log] CPU: Active 0 LPM: 1 Deep LPM: 298 Total time: 300 seconds
+[INFO: Energy Log] Radio: Listen: 0 Transmit: 0 seconds
+[INFO: Energy Log] CPU: Active 1 LPM: 1 Deep LPM: 357 Total time: 360 seconds
+[INFO: Energy Log] Radio: Listen: 0 Transmit: 0 seconds
+[INFO: Energy Log] CPU: Active 1 LPM: 1 Deep LPM: 417 Total time: 420 seconds
+[INFO: Energy Log] Radio: Listen: 0 Transmit: 0 seconds
+[INFO: Energy Log] CPU: Active 1 LPM: 1 Deep LPM: 477 Total time: 480 seconds
+[INFO: Energy Log] Radio: Listen: 0 Transmit: 0 seconds
+[INFO: Energy Log] CPU: Active 1 LPM: 1 Deep LPM: 536 Total time: 540 seconds
+[INFO: Energy Log] Radio: Listen: 0 Transmit: 0 seconds
+[INFO: Energy Log] CPU: Active 1 LPM: 2 Deep LPM: 596 Total time: 600 seconds
+[INFO: Energy Log] Radio: Listen: 0 Transmit: 0 seconds
