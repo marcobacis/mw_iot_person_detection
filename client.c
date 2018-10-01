@@ -337,9 +337,15 @@ PROCESS_THREAD(client_process, ev, data)
     /* Transitions */
     switch (mqtt_state) {
       case MQTT_STATE_IDLE:
+        #if CSMA_MANUAL_DUTY_CYCLING==1
+        if (!is_moving && etimer_expired(&timer)) {
+          mqtt_state = MQTT_STATE_RADIO_ON;
+        }
+        #else
         if (!is_moving) {
           mqtt_state = MQTT_STATE_RADIO_ON;
         }
+        #endif
         break;
         
       case MQTT_STATE_RADIO_ON:
