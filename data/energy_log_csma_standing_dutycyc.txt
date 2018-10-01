@@ -1,0 +1,75 @@
+using saved target 'srf06-cc26xx'
+../contiki-ng-course/tools/sky/serialdump-macos -b115200 /dev/cu.usbmodemL3002411
+[INFO: Main      ] Starting Contiki-NG-4d1dabbcd-dirty
+[INFO: Main      ]  Net: sicslowpan
+[INFO: Main      ]  MAC: CSMA
+[INFO: Main      ] Link-layer address 0012.4b00.0796.7c85
+[INFO: Main      ] Tentative link-local IPv6 address fe80::212:4b00:796:7c85
+[INFO: CC26xx/CC13xx] TI CC2650 SensorTag
+[INFO: CC26xx/CC13xx]  RF: Channel 25, PANID 0xABCD
+[INFO: CC26xx/CC13xx]  Node ID: 31877
+[INFO: Energy Log] started
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[INFO: Energy Log] CPU: Active 0 LPM: 32 Deep LPM: 26 Total time: 60 seconds
+[INFO: Energy Log] Radio: Listen: 32 Transmit: 0 seconds
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[INFO: Energy Log] CPU: Active 2 LPM: 60 Deep LPM: 57 Total time: 120 seconds
+[INFO: Energy Log] Radio: Listen: 61 Transmit: 0 seconds
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[INFO: Energy Log] CPU: Active 4 LPM: 89 Deep LPM: 86 Total time: 180 seconds
+[INFO: Energy Log] Radio: Listen: 91 Transmit: 0 seconds
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[INFO: Energy Log] CPU: Active 4 LPM: 118 Deep LPM: 116 Total time: 240 seconds
+[INFO: Energy Log] Radio: Listen: 121 Transmit: 1 seconds
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[INFO: Energy Log] CPU: Active 6 LPM: 144 Deep LPM: 148 Total time: 300 seconds
+[INFO: Energy Log] Radio: Listen: 147 Transmit: 1 seconds
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[INFO: Energy Log] CPU: Active 8 LPM: 169 Deep LPM: 183 Total time: 360 seconds
+[INFO: Energy Log] Radio: Listen: 172 Transmit: 1 seconds
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[INFO: Energy Log] CPU: Active 9 LPM: 196 Deep LPM: 214 Total time: 420 seconds
+[INFO: Energy Log] Radio: Listen: 200 Transmit: 2 seconds
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[INFO: Energy Log] CPU: Active 10 LPM: 225 Deep LPM: 244 Total time: 480 seconds
+[INFO: Energy Log] Radio: Listen: 230 Transmit: 2 seconds
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[INFO: Energy Log] CPU: Active 12 LPM: 254 Deep LPM: 273 Total time: 540 seconds
+[INFO: Energy Log] Radio: Listen: 260 Transmit: 2 seconds
+[INFO: Energy Log] CPU: Active 13 LPM: 273 Deep LPM: 312 Total time: 600 seconds
+[INFO: Energy Log] Radio: Listen: 280 Transmit: 3 seconds
+[ERR : TCP/IP    ] output: destination off-link and no default route
+[ERR : TCP/IP    ] output: destination off-link and no default route
