@@ -427,10 +427,10 @@ PROCESS_THREAD(client_process, ev, data)
     /* States */
     switch(mqtt_state) {
       case MQTT_STATE_IDLE:
-        set_led_pattern(LEDS_RED, 0b0, 0);
         break;
 
       case MQTT_STATE_RADIO_ON:
+        set_led_pattern(LEDS_RED, 0b1, 20);
         LOG_INFO("Turning radio on\n");
         #ifdef MAC_CONF_WITH_TSCH
         /* TSCH-only: we know that probably we'll join a new network once we
@@ -445,7 +445,6 @@ PROCESS_THREAD(client_process, ev, data)
         break;
         
       case MQTT_STATE_WAIT_IP:
-        set_led_pattern(LEDS_RED, 0b01, 0);
         LOG_INFO("Waiting IP address\n");
         etimer_set(&timer, STATE_MACHINE_PERIODIC);
         break;
