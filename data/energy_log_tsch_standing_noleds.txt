@@ -1,0 +1,35 @@
+using saved target 'srf06-cc26xx'
+../contiki-ng-course/tools/sky/serialdump-macos -b115200 /dev/cu.usbmodemL3002411
+[INFO: Main      ] Starting Contiki-NG-4d1dabbcd-dirty
+[INFO: Main      ]  Net: sicslowpan
+[INFO: Main      ]  MAC: TSCH
+[INFO: Main      ] Link-layer address 0012.4b00.0796.7c85
+[INFO: Main      ] Tentative link-local IPv6 address fe80::212:4b00:796:7c85
+[INFO: CC26xx/CC13xx] TI CC2650 SensorTag
+[INFO: CC26xx/CC13xx]  RF: Channel 25, PANID 0xABCD
+[INFO: CC26xx/CC13xx]  Node ID: 31877
+[INFO: Energy Log] started
+[ERR : TSCH Pkt  ] ! parse_eb: failed to parse frame
+[ERR : TSCH      ] ! failed to parse EB (len 0)
+[INFO: Energy Log] CPU: Active 60 LPM: 0 Deep LPM: 0 Total time: 60 seconds
+[INFO: Energy Log] Radio: Listen: 60 Transmit: 0 seconds
+[ERR : TSCH Pkt  ] ! parse_eb: failed to parse frame
+[ERR : TSCH      ] ! failed to parse EB (len 0)
+[INFO: Energy Log] CPU: Active 93 LPM: 1 Deep LPM: 25 Total time: 120 seconds
+[INFO: Energy Log] Radio: Listen: 87 Transmit: 0 seconds
+[INFO: Energy Log] CPU: Active 108 LPM: 4 Deep LPM: 67 Total time: 180 seconds
+[INFO: Energy Log] Radio: Listen: 89 Transmit: 0 seconds
+[INFO: Energy Log] CPU: Active 122 LPM: 6 Deep LPM: 110 Total time: 240 seconds
+[INFO: Energy Log] Radio: Listen: 92 Transmit: 0 seconds
+[INFO: Energy Log] CPU: Active 136 LPM: 9 Deep LPM: 154 Total time: 300 seconds
+[INFO: Energy Log] Radio: Listen: 94 Transmit: 1 seconds
+[INFO: Energy Log] CPU: Active 150 LPM: 12 Deep LPM: 197 Total time: 360 seconds
+[INFO: Energy Log] Radio: Listen: 97 Transmit: 1 seconds
+[INFO: Energy Log] CPU: Active 165 LPM: 14 Deep LPM: 239 Total time: 420 seconds
+[INFO: Energy Log] Radio: Listen: 99 Transmit: 1 seconds
+[INFO: Energy Log] CPU: Active 179 LPM: 17 Deep LPM: 283 Total time: 480 seconds
+[INFO: Energy Log] Radio: Listen: 102 Transmit: 2 seconds
+[INFO: Energy Log] CPU: Active 193 LPM: 20 Deep LPM: 325 Total time: 540 seconds
+[INFO: Energy Log] Radio: Listen: 104 Transmit: 2 seconds
+[INFO: Energy Log] CPU: Active 209 LPM: 22 Deep LPM: 367 Total time: 600 seconds
+[INFO: Energy Log] Radio: Listen: 107 Transmit: 2 seconds
