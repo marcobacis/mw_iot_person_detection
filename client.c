@@ -31,10 +31,21 @@
 #define LOG_LEVEL LOG_LEVEL_INFO
 #endif
 
+#if MAC_CONF_WITH_TSCH
+#define CSMA_MANUAL_DUTY_CYCLING  0
+#else
+#ifdef CSMA_CONF_MANUAL_DUTY_CYCLING
+#define CSMA_MANUAL_DUTY_CYCLING  CSMA_CONF_MANUAL_DUTY_CYCLING
+#else
+#define CSMA_MANUAL_DUTY_CYCLING  1
+#endif
+#endif
+
 
 static char mqtt_connected;
 process_event_t mqtt_did_connect;
 process_event_t mqtt_did_disconnect;
+process_event_t mqtt_did_publish;
 
 static char is_moving = 1;
 process_event_t mvmt_state_change;
@@ -61,8 +72,6 @@ static char pub_topic_cache[MQTT_MAX_TOPIC_LENGTH] = "";
 
 
 static struct mqtt_connection conn;
-
-
 static uint16_t seq_nr_value = 0;
 
 
@@ -149,6 +158,9 @@ static void mqtt_event(struct mqtt_connection *m, mqtt_event_t event, void *data
     
     case MQTT_EVENT_PUBACK:
       LOG_INFO("Publishing complete\n");
+      #if CSMA_MANUAL_DUTY_CYCLING==1
+      process_post(&client_process, mqtt_did_publish, NULL);
+      #endif
       break;
     
     default:
@@ -306,6 +318,7 @@ PROCESS_THREAD(client_process, ev, data)
   mqtt_connected = 0;
   mqtt_did_connect = process_alloc_event();
   mqtt_did_disconnect = process_alloc_event();
+  mqtt_did_publish = process_alloc_event();
   
   /* Register MQTT connection
    * Registering MQTT multiple times causes memory corruption!! */
@@ -363,9 +376,15 @@ PROCESS_THREAD(client_process, ev, data)
         break;
         
       case MQTT_STATE_CONNECTED_WAIT_PUBLISH:
+        #if CSMA_MANUAL_DUTY_CYCLING==1
+        if (ev == mqtt_did_publish) {
+          mqtt_state = MQTT_STATE_DISCONNECT;
+        }
+        #else
         if (ev == PROCESS_EVENT_TIMER && data == &timer) {
           mqtt_state = MQTT_STATE_CONNECTED_PUBLISH;
-        }
+        }        
+        #endif
         break;
         
       case MQTT_STATE_DISCONNECT_2:
@@ -402,6 +421,7 @@ PROCESS_THREAD(client_process, ev, data)
     /* States */
     switch(mqtt_state) {
       case MQTT_STATE_IDLE:
+        set_led_pattern(LEDS_RED, 0b0, 0);
         break;
 
       case MQTT_STATE_RADIO_ON:
@@ -444,7 +464,9 @@ PROCESS_THREAD(client_process, ev, data)
           LOG_INFO("Still publishing... (MQTT state=%d, q=%u)\n", conn.state,
             conn.out_queue_full);
         }
+        #if CSMA_MANUAL_DUTY_CYCLING==0
         etimer_set(&timer, K);
+        #endif
         break;
         
       case MQTT_STATE_CONNECTED_WAIT_PUBLISH:
@@ -476,6 +498,12 @@ PROCESS_THREAD(client_process, ev, data)
          * If TSCH is still in scanning mode, then we are *wasting power* and
          * we can do nothing about it because the TSCH stack is poorly written
          * and patching it to stop operating is not easy. */
+        #if CSMA_MANUAL_DUTY_CYCLING == 1
+        /* setup a wake for publishing again instead of waiting indefinitely
+         * The state machine will automatically reconnect and publish because  
+         * the MQTT_STATE_INIT transition trigger always checks is_moving */
+        etimer_set(&timer, K);
+        #endif
         break;
 
       /* Should never happen */
