@@ -183,6 +183,8 @@ static void publish(void)
   int radio_pwr = -1000;
   NETSTACK_RADIO.get_value(RADIO_PARAM_RSSI, &radio_rssi);
   NETSTACK_RADIO.get_value(RADIO_PARAM_TXPOWER, &radio_pwr);
+  
+  int clk = clock_time();
 
   len = snprintf(app_buffer, remaining, 
     "{"
@@ -190,13 +192,15 @@ static void publish(void)
       "\"seq_nr_value\":%d,"
       "\"last_accel\":[%d, %d, %d],"
       "\"curr_radio_rssi\":%d,"
-      "\"curr_radio_power_dbm\":%d"
+      "\"curr_radio_power_dbm\":%d,"
+      "\"uptime\":%d.%02d"
     "}", 
     client_id(), 
     seq_nr_value,
     last_acc[LAST_ACC_X], last_acc[LAST_ACC_Y], last_acc[LAST_ACC_Z],
     radio_rssi,
-    radio_pwr); 
+    radio_pwr,
+    clk / CLOCK_SECOND, (clk % CLOCK_SECOND) * 100 / CLOCK_SECOND); 
 
   if (len < 0 || len >= remaining) {
     LOG_ERR("Buffer too short. Have %d, need %d + \\0\n", remaining, len);
