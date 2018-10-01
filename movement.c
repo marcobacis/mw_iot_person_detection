@@ -3,7 +3,12 @@
 
 
 #define LOG_MODULE "Movement"
+#ifdef LOG_CONF_LEVEL_MOVEMENT
+#define LOG_LEVEL LOG_CONF_LEVEL_MOVEMENT
+#else
 #define LOG_LEVEL LOG_LEVEL_INFO
+#endif
+
 
 int last_acc[3];
 
@@ -36,7 +41,7 @@ int get_mvmt_value_reliable(int vid)
     try--;
   }
   if (val == CC26XX_SENSOR_READING_ERROR) {
-    LOG_INFO("mvmt read failed\n");
+    LOG_ERR("mvmt read failed\n");
   } else {
     LOG_DBG("mvmt read succeeded with %d retry attempts left\n", try);
   }

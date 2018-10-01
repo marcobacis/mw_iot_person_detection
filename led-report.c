@@ -4,11 +4,18 @@
 
 
 #define LOG_MODULE "Leds"
-#ifdef CONTIKI_TARGET_NATIVE
-#define LOG_LEVEL LOG_LEVEL_DBG
-#define FANCY_PRINTF
+#ifdef LOG_CONF_LEVEL_PD_CLIENT
+#define LOG_LEVEL  LOG_CONF_LEVEL_PD_CLIENT
 #else
-#define LOG_LEVEL LOG_LEVEL_INFO
+#ifdef CONTIKI_TARGET_NATIVE
+#define LOG_LEVEL  LOG_LEVEL_DBG
+#else
+#define LOG_LEVEL  LOG_LEVEL_INFO
+#endif
+#endif
+
+#ifdef CONTIKI_TARGET_NATIVE
+#define FANCY_PRINTF
 #endif
 
 // duration of a quantum (fastest possible LED blink)

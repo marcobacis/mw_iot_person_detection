@@ -25,7 +25,11 @@
 
 
 #define LOG_MODULE "PD Client"
-#define LOG_LEVEL LOG_LEVEL_DBG
+#ifdef LOG_CONF_LEVEL_PD_CLIENT
+#define LOG_LEVEL LOG_CONF_LEVEL_PD_CLIENT
+#else
+#define LOG_LEVEL LOG_LEVEL_INFO
+#endif
 
 
 static char mqtt_connected;

@@ -6,7 +6,11 @@
 
 
 #define LOG_MODULE "Energy Log"
+#ifdef LOG_CONF_LEVEL_PD_CLIENT
+#define LOG_LEVEL LOG_CONF_LEVEL_ENERGEST_LOG
+#else
 #define LOG_LEVEL LOG_LEVEL_INFO
+#endif
 
 
 PROCESS(energest_process, "Energest print process");

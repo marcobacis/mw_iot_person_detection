@@ -104,6 +104,10 @@
  * LOGGING
  */
 
+#define LOG_CONF_LEVEL_PD_CLIENT                   LOG_LEVEL_ERR
+#define LOG_CONF_LEVEL_LED_REPORT                  LOG_LEVEL_ERR
+#define LOG_CONF_LEVEL_ENERGEST_LOG                LOG_LEVEL_DBG
+#define LOG_CONF_LEVEL_MOVEMENT                    LOG_LEVEL_ERR
 #define LOG_CONF_LEVEL_RPL                         LOG_LEVEL_ERR
 #define LOG_CONF_LEVEL_TCPIP                       LOG_LEVEL_ERR
 #define LOG_CONF_LEVEL_MAC                         LOG_LEVEL_ERR
