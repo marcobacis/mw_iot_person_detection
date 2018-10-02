@@ -43,3 +43,4 @@ tests/[0-9][0-9]-*/org/
 #sublime text project
 *.sublime-*
 doc
+*.dvi

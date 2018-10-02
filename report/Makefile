@@ -1,36 +1,20 @@
-filename=report
+NAME = report
 
-pdf: ps
-	ps2pdf ${filename}.ps
-	rm -f ${filename}.{ps,dvi}
+ifeq ($(shell uname -s),Darwin)
+PDF_READER=open
+else
+PDF_READER=evince
+endif
 
-pdf-print: ps
-	ps2pdf -dColorConversionStrategy=/LeaveColorUnchanged -dPDFSETTINGS=/printer ${filename}.ps
-
-text: html
-	html2text -width 100 -style pretty ${filename}/${filename}.html | sed -n '/./,$$p' | head -n-2 >${filename}.txt
-
-html:
-	@#latex2html -split +0 -info "" -no_navigation ${filename}
-	htlatex ${filename}
-
-ps:	dvi
-	dvips -t letter ${filename}.dvi
-
-dvi:
-	latex ${filename}
-	bibtex ${filename}||true
-	latex ${filename}
-	latex ${filename}
-
-read:
-	evince ${filename}.pdf &
-
-aread:
-	acroread ${filename}.pdf
-
-clean:
-	rm -f ${filename}.{ps,pdf,log,aux,out,dvi,bbl,blg}
+paper:
+	@rm -f *.aux *.bbl *.blg
+	@pdflatex	$(NAME)
+	@if test -f $(NAME).aux &&  test `grep citation $(NAME).aux | wc -l` -ge 1; then bibtex $(NAME); fi
+	@pdflatex	$(NAME)
+	@pdflatex	$(NAME)
 
 view:
-	open ${filename}.pdf
+	$(PDF_READER) $(NAME).pdf &
+
+clean:
+	rm -f *.out *.aux *.bbl *.blg *.dvi *.log *~ *.backup $(NAME).ps $(NAME).pdf $(NAME).synctex.gz $(NAME).fdb_latexmk $(NAME).fls
