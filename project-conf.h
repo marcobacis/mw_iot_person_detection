@@ -7,7 +7,7 @@
 #define PROJECT_CONF_H_
 
 
-/**
+/*
  * NETWORK OPTIONS
  */
 
@@ -20,7 +20,7 @@
 /* If this node must stay a leaf or not */
 #define RPL_CONF_LEAF_ONLY          1
 
-/** @name MQTT configuration */
+/* MQTT configuration */
 #define MQTT_PUBLISH_TOPIC_PREFIX   "iot/position/"
 #define MQTT_BROKER_IP_ADDR         "aaaa::1"
 #define MQTT_BROKER_PORT            1883
@@ -35,7 +35,7 @@
  * disconnect) */
 #define STATE_MACHINE_PERIODIC     (CLOCK_SECOND)
 
-/* configuration
+/* RPL configuration
  * We want short RPL lifetime and probing interval because we expect network
  * disconnections and reconnections to be frequent */
 #define RPL_CONF_DEFAULT_LIFETIME_UNIT      1
@@ -46,7 +46,6 @@
 #define RPL_CONF_NOPATH_REMOVAL_DELAY       60
 #define RPL_CONF_DAO_MAX_RETRANSMISSIONS    2
 #define RPL_CONF_DAO_RETRANSMISSION_TIMEOUT (2 * CLOCK_SECOND)
-/** @} */
 
 /* Radio power setting in dBm
  * Default is 5 dBm */
