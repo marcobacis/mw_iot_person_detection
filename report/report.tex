@@ -11,32 +11,15 @@
 \large\textbf{Middleware Project - IoT} \hfill \textbf{Marco Bacis} 873199 \\
 Prof. Mottola \hfill \textbf{Daniele Cattaneo} 874757 \\
 Prof. Guinea
+
 \section*{Problem Statement}
 
-The goal of the project is to develop an IPv6-based presence detection system using MQTT:
-\begin{itemize}
-\item People roaming in a given area carry wireless sensors able to sense acceleration
-\item Every relevant location in the environment, e.g., every room, is equipped with a static wireless device
-\item This device acts as an IPv6 border router and is wired to a standard host running the IPv6 stack, e.g., through a USB connection
-\item The border router id acts as an identifier for the corresponding location
-\end{itemize}
-
-\subsection*{Requirements}
-
-\begin{itemize}
-\item The mobile device should do everything possible to minimize energy consumption as long as the acceleration readings tell that the user is still moving
-\item Once the mobile device detects the user has stopped moving, it must
-\begin{itemize}
-    \item Connect to a nearby border router (if one is reachable)
-    \item Periodically publish an MQTT message ever K time units • Over a topic that includes the id of the border router
-    \item With a payload that includes the mobile device id
-\end{itemize}
-
-\end{itemize}
+The goal of the project is to develop an IPv6-based presence detection system using MQTT, in which every person is equipped with a wireless sensor, and every room has a static wireless device working as IPv6 border-router.
+The mobile device detects the user movements and, when the user is stationary, sends messages to a MQTT broker with the client id, in a different channel for each room.
+The device should do everything possible to minimize energy consumption while the user is moving.
+Finally, the client application must contain parameters for the movement threshold (T) and for the acceleration reading period while the used is motionless (G), along with all the other relevant constants, in the project-conf.h file.
 
 \section*{Implementation}
-
-\textcolor{red}{TODO: add introduction to the implementation (anything...)}
 
 \subsection*{Sensor Finite State Machine}
 
@@ -79,7 +62,8 @@ The movement threshold T is applied to the absolute value of the acceleration mo
 The reading timeout G is a environment and use-case dependent factor, as it depends on the place in which the system is deployed and which activities the users are usually doing.
 Different measures can be used to estimate its value.
 The measure of G impacts on the resolution of the system (not counting disconnections when moving too far from the router), so it must be a lower bound based on some experimental data gathered from the environment.
-In our case, the average movement lasted 42 seconds with a $23,29$ standard deviation, a minimum time of 12 seconds and maximum of 74 seconds.
+In our case, we used a \emph{smooth} representation of the acceleration data to obtain the movements (without counting micromovements in the same room).
+The average movement lasted 42 seconds with a $23,29$ standard deviation, a minimum time of 12 seconds and maximum of 74 seconds.
 As a tradeoff between resolution and energy consumption we decided to estimate G as $average - standard deviation$ from the test data, meaning $G = 19$ seconds.
 In this way, G lasts less than $84,1$\% of the movement periods, and at least one acceleration measure is done in longer periods.
 
