@@ -65,6 +65,11 @@
  * (usually around 10 to 15 seconds with default settings). */
 #define CSMA_CONF_MANUAL_DUTY_CYCLING       1
 
+/* Publish a MQTT every time the accelerometer is polled instead of every K
+ * seconds. Note: If CSMA_CONF_MANUAL_DUTY_CYCLING == 1, the accelerometer
+ * events sent while the radio stack is being turned off will be ignored. */
+#define PUBLISH_ON_MOVEMENT                 0
+
 
 /*
  * ENERGEST CONFIGURATION

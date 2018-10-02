@@ -304,10 +304,10 @@ PROCESS_THREAD(movement_monitor_process, ev, data)
       process_post(&client_process, mvmt_state_change, NULL);
       next_wake = G;
       
-    } else if (is_moving) {
-      next_wake = MOVEMENT_PERIOD;
-      
     } else {
+      #if PUBLISH_ON_MOVEMENT
+      process_post(&client_process, mvmt_state_change, NULL);
+      #endif
       next_wake = MOVEMENT_PERIOD;
       
     }
@@ -413,7 +413,7 @@ PROCESS_THREAD(client_process, ev, data)
      * iteration */
     switch (mqtt_state) {
       case MQTT_STATE_IDLE:
-        #if CSMA_MANUAL_DUTY_CYCLING==1
+        #if CSMA_MANUAL_DUTY_CYCLING==1 && PUBLISH_ON_MOVEMENT==0
         if (!is_moving && etimer_expired(&timer)) {
           mqtt_state = MQTT_STATE_RADIO_ON;
         } 
@@ -463,9 +463,15 @@ PROCESS_THREAD(client_process, ev, data)
           mqtt_state = MQTT_STATE_DISCONNECT;
         }
         #else
+        #if PUBLISH_ON_MOVEMENT==0
         if (ev == PROCESS_EVENT_TIMER && data == &timer) {
           mqtt_state = MQTT_STATE_CONNECTED_PUBLISH;
-        }        
+        }
+        #else
+        if (ev == mvmt_state_change) {
+          mqtt_state = MQTT_STATE_CONNECTED_PUBLISH;
+        }
+        #endif
         #endif
         break;
         
@@ -552,7 +558,7 @@ PROCESS_THREAD(client_process, ev, data)
           LOG_INFO("Still publishing... (MQTT state=%d, q=%u)\n", conn.state,
             conn.out_queue_full);
         }
-        #if CSMA_MANUAL_DUTY_CYCLING==0
+        #if CSMA_MANUAL_DUTY_CYCLING==0 && PUBLISH_ON_MOVEMENT==0
         etimer_set(&timer, K);
         #endif
         break;
