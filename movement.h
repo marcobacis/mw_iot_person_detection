@@ -1,5 +1,5 @@
 /** @file 
- * @brief Accelerator Reader Module
+ * @brief Accelerometer Reader Module
  *
  * This module contains all the functions which interact 
  * directly with the accelerometer (which is real only for targets that 
@@ -47,9 +47,10 @@ int movement_ready(process_event_t ev, process_data_t data);
 
 /** Gets the movement reading as a single value.
  * @returns The modulo squared of the acceleration vector read from the 
- *          accelerometer.
+ *          accelerometer, or -1 if an error occurred.
  * @note    This function also updates last_acc with the acceleration values
- *          read from the sensor. 
+ *          read from the sensor. If get_movement() returns -1, the values in
+ *          last_acc are undefined.
  * @warning This function turns off the accelerator before returning. Thus,
  *          to read it again, you must call init_movement_reading() and
  *          wait for the readiness events with movement_ready() again. */
