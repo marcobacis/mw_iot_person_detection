@@ -32,13 +32,11 @@
 PROCESS(led_report_process, "LED Handler");
 
 
-/** A LED pattern.
- * @field pattern The LED pattern, as specified in the documentation of 
- *                set_led_pattern. 
- * @field period  The LED period, as specified in the documentation of 
- *                set_led_pattern. */
+/** A LED pattern. */
 typedef struct {
+  /** The LED pattern, as specified in the documentation of set_led_pattern. */ 
   uint32_t pattern;
+  /** The LED period, as specified in the documentation of set_led_pattern. */ 
   uint8_t period;
 } led_pattern_info_t;
 
