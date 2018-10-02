@@ -1,3 +1,9 @@
+/** @file 
+ * @brief Configurable LED light pattern emitter implementation
+ * 
+ * @author Marco Bacis
+ * @author Daniele Cattaneo */
+
 #include "contiki.h"
 #include "sys/log.h"
 #include "led-report.h"
@@ -23,25 +29,30 @@
 #endif
 
 
-// duration of a quantum (fastest possible LED blink)
-#define LED_PERIOD (CLOCK_SECOND / 20)
-#define NUM_LEDS   3
-
-
 PROCESS(led_report_process, "LED Handler");
 
 
+/** A LED pattern.
+ * @field pattern The LED pattern, as specified in the documentation of 
+ *                set_led_pattern. 
+ * @field period  The LED period, as specified in the documentation of 
+ *                set_led_pattern. */
 typedef struct {
   uint32_t pattern;
   uint8_t period;
 } led_pattern_info_t;
 
+/** Advances a LED pattern in time.
+ * @param pi The LED pattern to be advanced.
+ * @param n  The number of time units (bits) the pattern has to be advanced. */
 #define ROTATE_PATTERN(pi, n) do { \
     (pi).pattern = ((pi).pattern | ((pi).pattern << (pi).period)) >> (n); \
   } while (0)
 
 
+/** The current list of LED patterns. */
 led_pattern_info_t led_patterns[NUM_LEDS];
+
 struct etimer led_timer;
 clock_time_t t_last_shift = 0;
 clock_time_t t_last_update = 0;
@@ -57,6 +68,8 @@ void set_led_pattern(uint8_t leds, uint32_t pattern, uint8_t period)
   
   leds &= (1 << NUM_LEDS) - 1;
   
+  /* Advance all the patterns to the current time, then replace those
+   * that must be updated and fire led_report_process as soon as possible. */
   clock_time_t t_elapsed = MAX(0, clock_time() - t_last_shift);
   clock_time_t t_remainder = t_elapsed % LED_PERIOD;
   int next_quantum = (t_elapsed + LED_PERIOD - 1) / LED_PERIOD;
@@ -98,6 +111,11 @@ void led_report_init(void)
 }
 
 
+/** The main process of the LED pattern generator.
+ * 
+ * The process is woken when the patterns will change the LEDs, thus it can 
+ * sleep for an amount of time which is any multiple of LED_PERIOD, depending
+ * on the current combination of patterns. */
 PROCESS_THREAD(led_report_process, ev, data)
 {
   PROCESS_BEGIN();

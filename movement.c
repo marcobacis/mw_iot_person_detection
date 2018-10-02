@@ -1,3 +1,13 @@
+/** @file 
+ * @brief Accelerator Reader Module Implementation
+ *
+ * This file implements both reading from the accelerometer of the cc2650
+ * sensortag board and reading from an hardcoded array of values in the case
+ * of the native target.
+ * 
+ * @author Marco Bacis
+ * @author Daniele Cattaneo */
+ 
 #include "movement.h"
 #include "sys/log.h"
 
@@ -26,7 +36,7 @@ int movement_ready(process_event_t ev, process_data_t data)
 }
 
 
-void init_movement_reading(void *not_used)
+void init_movement_reading(void)
 {
   mpu_9250_sensor.configure(SENSORS_ACTIVE, MPU_9250_SENSOR_TYPE_ACC);
 }
@@ -79,7 +89,7 @@ int movement_ready(process_event_t ev, process_data_t data)
 }
 
 
-void init_movement_reading(void *not_used)
+void init_movement_reading(void)
 {  
   if (fakesens_event == PROCESS_EVENT_NONE) {
     fakesens_event = process_alloc_event();

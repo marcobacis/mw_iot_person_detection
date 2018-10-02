@@ -1,3 +1,9 @@
+/** @file 
+ * @brief Energest Log Module Implementation
+ * 
+ * @author Marco Bacis
+ * @author Daniele Cattaneo */
+
 #include "contiki.h"
 #include "sys/energest.h"
 #include "sys/log.h"
@@ -23,7 +29,6 @@ PROCESS_THREAD(energest_process, ev, data)
 
   LOG_INFO("started\n");
 
-  /* Delay 10 second */
   etimer_set(&et, ENERGEST_LOG_DELAY);
 
   while(1) {

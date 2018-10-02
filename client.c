@@ -1,9 +1,11 @@
-/**	
- * \file
- *         Client-side application for the person detection project
+/** @file 
+ * @brief Client-side application for the person detection project.
+ *
+ * Contains two main loops: one for checking if the device is currently
+ * moving, and one which handles network operations.
  * 
- * Authors: Marco Bacis, Daniele Cattaneo
- */
+ * @author Marco Bacis
+ * @author Daniele Cattaneo */
 
 #include <stdio.h>
 #include <string.h>
@@ -42,7 +44,6 @@
 #endif
 
 
-static char mqtt_connected;
 process_event_t mqtt_did_connect;
 process_event_t mqtt_did_disconnect;
 process_event_t mqtt_did_publish;
@@ -61,20 +62,25 @@ PROCESS(movement_monitor_process, "mw-iot-person-detection mqtt monitor");
 #endif
 
 
+/** The length of the topic buffer. */
 #define MQTT_MAX_TOPIC_LENGTH 64
+/** The topic buffer. */
 static char pub_topic_cache[MQTT_MAX_TOPIC_LENGTH] = "";
 
+/** The length of the message buffer. */
 #define MQTT_MAX_CONTENT_LENGTH 256
 
-
-/* Maximum TCP segment size for outgoing segments of our socket */
-#define MAX_TCP_SEGMENT_SIZE    16
-
-
+/** The current MQTT connection. */
 static struct mqtt_connection conn;
-static uint16_t seq_nr_value = 0;
 
 
+/** Formats a IPv6 address into a string buffer.
+ * @param buf     The output buffer. On return, the string in the buffer will
+ *                always be null-terminated.
+ * @param buf_len The size of the buffer (the resulting string will be long at 
+ *                most buf_len-1 characters).
+ * @param addr    The IPv6 address to be formatted.
+ * @returns       The length of the string written into the buffer. */
 int ipaddr_sprintf(char *buf, uint8_t buf_len, const uip_ipaddr_t *addr)
 {
   uint16_t a;
@@ -100,6 +106,8 @@ int ipaddr_sprintf(char *buf, uint8_t buf_len, const uip_ipaddr_t *addr)
 }
 
 
+/** Updates the string returned by pub_topic() to reflect the current network
+ * configuration. */
 static void update_pub_topic(void)
 {
   char *ptopic = pub_topic_cache;
@@ -121,6 +129,14 @@ static void update_pub_topic(void)
 }
 
 
+/** Returns the string used as the MQTT topic.
+ * The MQTT topic string consists of a concatenation of the value of 
+ * MQTT_PUBLISH_TOPIC_PREFIX and the IPv6 address of the border router we
+ * are currently connected to. Note that when the border router changes it is
+ * necessary to call update_pub_topic() to update the string returned by
+ * this function.
+ * @returns The MQTT topic name.
+ * @warning The returned string is a shared buffer which must not be reused. */
 static char *pub_topic(void)
 {
   if (pub_topic_cache[0] == '\0')
@@ -129,6 +145,10 @@ static char *pub_topic(void)
 }
 
 
+/** Returns an ID for the current client. 
+ * @returns The client ID.
+ * @note    Currently the ID returned is constructed fromthe link-local IPv6 
+ *          address of the node */
 static char *client_id(void)
 {
   static char client_id[2*6+1] = "";
@@ -143,6 +163,12 @@ static char *client_id(void)
 }
 
 
+/** Process an event from the current MQTT connection.
+ * @param m     The MQTT connection the event is associated with.
+ * @param event The event identifier.
+ * @param data  The data associated with the event, if any. 
+ * @warning     This function is meant to be called by the MQTT stack only.
+ *              For more details see the Contiki MQTT documentation. */
 static void mqtt_event(struct mqtt_connection *m, mqtt_event_t event, void *data)
 {
   switch(event) {
@@ -170,12 +196,15 @@ static void mqtt_event(struct mqtt_connection *m, mqtt_event_t event, void *data
 }
 
 
+/** Publishes a message over the current MQTT connection.
+ * The message published contains the ID of the client and other useful
+ * information for later analysis including the acceleration values measured,
+ * the measured radio signal power, and the uptime of the node in seconds. */
 static void publish(void)
 {
-  /* Publish MQTT topic */
+  static uint16_t seq_nr_value = 0;
   static char app_buffer[MQTT_MAX_CONTENT_LENGTH];
   int len;
-  int remaining = MQTT_MAX_CONTENT_LENGTH;
 
   seq_nr_value++;
   
@@ -186,7 +215,7 @@ static void publish(void)
   
   int clk = clock_time();
 
-  len = snprintf(app_buffer, remaining, 
+  len = snprintf(app_buffer, MQTT_MAX_CONTENT_LENGTH, 
     "{"
       "\"client_id\":\"%s\","
       "\"seq_nr_value\":%d,"
@@ -202,21 +231,27 @@ static void publish(void)
     radio_pwr,
     clk / CLOCK_SECOND, (clk % CLOCK_SECOND) * 100 / CLOCK_SECOND); 
 
-  if (len < 0 || len >= remaining) {
-    LOG_ERR("Buffer too short. Have %d, need %d + \\0\n", remaining, len);
-    return;
+  if (len >= MQTT_MAX_CONTENT_LENGTH) {
+    LOG_ERR("Buffer too short; MQTT message has been truncated!\n");
   }
 
   mqtt_status_t res = mqtt_publish(&conn, NULL, pub_topic(), (uint8_t *)app_buffer,
                len, MQTT_QOS_LEVEL_1, MQTT_RETAIN_OFF);
 
-  if(res == MQTT_STATUS_OK)
-    LOG_INFO("Publish sent out (length %d, max %d)!\nMessage = %s\n", len, MQTT_MAX_CONTENT_LENGTH, app_buffer);
-  else
+  if(res == MQTT_STATUS_OK) {
+    LOG_INFO("Publish sent out (length %d, max %d)!\n", len, MQTT_MAX_CONTENT_LENGTH);
+    LOG_INFO("Message = %s\n", app_buffer);
+  } else {
     LOG_ERR("Error in publishing... %d\n", res);
+  }
 }
 
 
+/** The process responsible for monitoring the movements of the device.
+ *
+ * This process periodically polls the accelerometer and determines if the
+ * device has moved or not. It sends an event to client_process
+ * each time the movement state has changed. */
 PROCESS_THREAD(movement_monitor_process, ev, data)
 {
   static struct etimer acc_timer;
@@ -235,7 +270,7 @@ PROCESS_THREAD(movement_monitor_process, ev, data)
       LOG_DBG("wait timer ev=%x data=%p\n", ev, data);
     } while (!etimer_expired(&acc_timer));
     
-    init_movement_reading(NULL);
+    init_movement_reading();
     do {
       PROCESS_YIELD();
       LOG_DBG("wait movement_ready ev=%x data=%p\n", ev, data);
@@ -281,6 +316,12 @@ PROCESS_THREAD(movement_monitor_process, ev, data)
 }
 
 
+/** Returns whether the RPL network is reachable, or 1 if there is no RPL
+ * network. 
+ * @returns The value returned by rpl_is_reachable() if using RPL, 
+ *          1 otherwise. 
+ * @note    This function exists to allow testing the software when 
+ *          TARGET=native. */
 int rpl_is_reachable_2(void)
 {
   #ifdef CONTIKI_TARGET_NATIVE
@@ -291,20 +332,48 @@ int rpl_is_reachable_2(void)
 }
 
 
+/** The network management process.
+ *
+ * When the device is not moving, as verified by movement_monitor_process,
+ * this process disconnects any network connection -- if any -- and then
+ * enters a wait state.
+ *
+ * When movement_monitor_process detects the device is
+ * moving, this process does a best effort to connect to the first available 
+ * network and starts periodically sending MQTT messages using the publish()
+ * function. */
 PROCESS_THREAD(client_process, ev, data)
 {
   static int mqtt_fake_disconnect = 0;
   static struct etimer timer;
   static enum {
+    /* Standard CSMA mode, TSCH mode:
+     *   Waiting because the device is moving. 
+     * Manual Duty Cycling CSMA mode:
+     *   Waiting because the device is moving, or waiting for K seconds the time
+     *   of the next MQTT message post. */
     MQTT_STATE_IDLE,
+    /* The radio must be turned on. */
     MQTT_STATE_RADIO_ON,
+    /* Waiting for the network connection to be established. */
     MQTT_STATE_WAIT_IP,
+    /* The device must connect to the MQTT broker. */
     MQTT_STATE_CONNECT_MQTT,
+    /* Waiting for the connection to the MQTT broker to be established. */
     MQTT_STATE_WAIT_MQTT,
+    /* The device must publish on the MQTT topic. */
     MQTT_STATE_CONNECTED_PUBLISH,
+    /* Standard CSMA mode, TSCH mode:
+     *   The device is waiting for K seconds the time of the next MQTT message
+     *   post.
+     * Manual Duty Cycling CSMA mode:
+     *   The device is waiting for the MQTT message to be fully delivered. */
     MQTT_STATE_CONNECTED_WAIT_PUBLISH,
+    /* Disconnection Phase 1: Initiate MQTT teardown */
     MQTT_STATE_DISCONNECT,
+    /* Disconnection Phase 2: Waiting for the MQTT connection to close */
     MQTT_STATE_DISCONNECT_2,
+    /* Disconnection Phase 3: Turn off radios */
     MQTT_STATE_DISCONNECT_3
   } mqtt_state = MQTT_STATE_IDLE;
   
@@ -319,7 +388,6 @@ PROCESS_THREAD(client_process, ev, data)
   
   process_start(&movement_monitor_process, NULL);
   
-  mqtt_connected = 0;
   mqtt_did_connect = process_alloc_event();
   mqtt_did_disconnect = process_alloc_event();
   mqtt_did_publish = process_alloc_event();
@@ -338,13 +406,15 @@ PROCESS_THREAD(client_process, ev, data)
   etimer_set(&timer, STATE_MACHINE_PERIODIC);
   
   while (1) {
-    /* Transitions */
+    /* Transitions.
+     * mqtt_state is still set to the state that was executed in the previous
+     * iteration */
     switch (mqtt_state) {
       case MQTT_STATE_IDLE:
         #if CSMA_MANUAL_DUTY_CYCLING==1
         if (!is_moving && etimer_expired(&timer)) {
           mqtt_state = MQTT_STATE_RADIO_ON;
-        }
+        } 
         #else
         if (!is_moving) {
           mqtt_state = MQTT_STATE_RADIO_ON;
@@ -411,11 +481,14 @@ PROCESS_THREAD(client_process, ev, data)
         break;
     }
     
+    /* Global triggers */
     if (is_moving && 
         mqtt_state != MQTT_STATE_IDLE && 
         mqtt_state != MQTT_STATE_DISCONNECT && 
         mqtt_state != MQTT_STATE_DISCONNECT_2 &&
         mqtt_state != MQTT_STATE_DISCONNECT_3) {
+      /* As soon as movement is detected, abort all connections (even those
+       * that could not be established */
       LOG_INFO("Resetting MQTT state machine\n");
       mqtt_state = MQTT_STATE_DISCONNECT;
     }

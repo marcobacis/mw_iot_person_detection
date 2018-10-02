@@ -1,23 +1,26 @@
-
+/* Configuration file of the Middleware Person Detection Project
+ * 
+ * @author Marco Bacis
+ * @author Daniele Cattaneo */
+ 
 #ifndef PROJECT_CONF_H_
 #define PROJECT_CONF_H_
 
 
-/*
+/**
  * NETWORK OPTIONS
  */
 
-/* Disable PROP_MODE (Low-GHz non-standard IEEE 802.15.4, only for 
- * CC13xx boards) */
-#define CC13XX_CONF_PROP_MODE 0
+/* Disable PROP_MODE (Low-GHz IEEE 802.15.4, only for CC13xx boards) */
+#define CC13XX_CONF_PROP_MODE       0
 
 /* Enable TCP */
-#define UIP_CONF_TCP 1
+#define UIP_CONF_TCP                1
 
 /* If this node must stay a leaf or not */
-#define RPL_CONF_LEAF_ONLY 1
+#define RPL_CONF_LEAF_ONLY          1
 
-/* MQTT configuration */
+/** @name MQTT configuration */
 #define MQTT_PUBLISH_TOPIC_PREFIX   "iot/position/"
 #define MQTT_BROKER_IP_ADDR         "aaaa::1"
 #define MQTT_BROKER_PORT            1883
@@ -25,11 +28,14 @@
 #define MQTT_AUTH_TOKEN             "AUTHZ"
 #define MQTT_SUBSCRIBE_CMD_TYPE     "+"
 
+/* Maximum TCP segment size for outgoing segments of our socket */
+#define MAX_TCP_SEGMENT_SIZE        16
+
 /* A timeout used when waiting for something to happen (e.g. to connect or to
  * disconnect) */
 #define STATE_MACHINE_PERIODIC     (CLOCK_SECOND)
 
-/* RPL configuration
+/* configuration
  * We want short RPL lifetime and probing interval because we expect network
  * disconnections and reconnections to be frequent */
 #define RPL_CONF_DEFAULT_LIFETIME_UNIT      1
@@ -40,13 +46,24 @@
 #define RPL_CONF_NOPATH_REMOVAL_DELAY       60
 #define RPL_CONF_DAO_MAX_RETRANSMISSIONS    2
 #define RPL_CONF_DAO_RETRANSMISSION_TIMEOUT (2 * CLOCK_SECOND)
+/** @} */
 
 /* Radio power setting in dBm
  * Default is 5 dBm */
-#define CLIENT_RADIO_POWER_CONF       (-18)
+#define CLIENT_RADIO_POWER_CONF             (0)
 
+/* Period between each channel hop when establishing a TSCH. 
+ * Tweak if connection is too slow, it could make a difference. */
 #define TSCH_CONF_CHANNEL_SCAN_DURATION     (CLOCK_SECOND / 4)
 
+/* Enable manual duty cycling in CSMA mode. When manual duty cycling is 
+ * enabled, the radio is kept on only for the duration of time needed to
+ * connect to the MQTT broker and send a single message, then it is turned
+ * off immediately.
+ * Warning: to avoid excessive power consumption for small values of K, when 
+ * manual duty cycling is on, K is effectively increased by the amount of
+ * time needed to connect to the RPL network after the radio is turned on
+ * (usually around 10 to 15 seconds with default settings). */
 #define CSMA_CONF_MANUAL_DUTY_CYCLING       1
 
 
@@ -55,13 +72,13 @@
  */
  
 #ifndef ENERGEST_CONF_ON
-#define ENERGEST_CONF_ON 0
+#define ENERGEST_CONF_ON 1
 #endif
 
-#define ENERGEST_CONF_CURRENT_TIME clock_time
-#define ENERGEST_CONF_TIME_T clock_time_t
-#define ENERGEST_CONF_SECOND CLOCK_SECOND
-#define ENERGEST_LOG_DELAY 60 * CLOCK_SECOND
+#define ENERGEST_CONF_CURRENT_TIME  clock_time
+#define ENERGEST_CONF_TIME_T        clock_time_t
+#define ENERGEST_CONF_SECOND        CLOCK_SECOND
+#define ENERGEST_LOG_DELAY          (60 * CLOCK_SECOND)
 
 
 /*
@@ -76,7 +93,6 @@
 #define DISABLE_MOVEMENT_SLEEP 0
 
 /* Acceleration thresholds */
-#define GRAVITY 100
 #define T_MOD   1000
 #define T_DMOD  500
 
@@ -105,13 +121,21 @@
 /*
  * LOGGING
  */
- 
-#define ENABLE_LEDS       0
 
+/* Set to zero to disable blinkenlights. When enabled, leds blink with 
+ * different patterns depending on the internal state of the software. */ 
+#define ENABLE_LEDS       1
+
+/* Log level for the main person detection software. */
 #define LOG_CONF_LEVEL_PD_CLIENT                   LOG_LEVEL_ERR
+/* Log level for the led-report module. */
 #define LOG_CONF_LEVEL_LED_REPORT                  LOG_LEVEL_ERR
+/* Log level for the energest-log module. */
 #define LOG_CONF_LEVEL_ENERGEST_LOG                LOG_LEVEL_DBG
+/* Log level for the movement module. */
 #define LOG_CONF_LEVEL_MOVEMENT                    LOG_LEVEL_ERR
+
+/* Log level for useful Contiki modules */
 #define LOG_CONF_LEVEL_RPL                         LOG_LEVEL_ERR
 #define LOG_CONF_LEVEL_TCPIP                       LOG_LEVEL_ERR
 #define LOG_CONF_LEVEL_MAC                         LOG_LEVEL_ERR
