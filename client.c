@@ -334,12 +334,12 @@ int rpl_is_reachable_2(void)
 
 /** The network management process.
  *
- * When the device is not moving, as verified by movement_monitor_process,
+ * When the device is moving, as verified by movement_monitor_process,
  * this process disconnects any network connection -- if any -- and then
  * enters a wait state.
  *
- * When movement_monitor_process detects the device is
- * moving, this process does a best effort to connect to the first available 
+ * When movement_monitor_process detects the device is not moving anymore,
+ * this process does a best effort to connect to the first available 
  * network and starts periodically sending MQTT messages using the publish()
  * function. */
 PROCESS_THREAD(client_process, ev, data)
