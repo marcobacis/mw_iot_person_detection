@@ -257,7 +257,9 @@ static void publish(void)
 PROCESS_THREAD(movement_monitor_process, ev, data)
 {
   static struct etimer acc_timer;
+  #if !DISABLE_MOVEMENT_SLEEP
   static int old_movement = 0;
+  #endif
   
   PROCESS_BEGIN();
   
@@ -278,19 +280,21 @@ PROCESS_THREAD(movement_monitor_process, ev, data)
       LOG_DBG("wait movement_ready ev=%x data=%p\n", ev, data);
     } while (!movement_ready(ev, data));
     
-    clock_time_t next_wake;
+    set_led_pattern(LEDS_GREEN, 0b1, 0);
+    int raw_mov = get_movement();
     
     #if !DISABLE_MOVEMENT_SLEEP
-    int raw_mov = get_movement();
     int mov = ABS(raw_mov - GRAVITY*GRAVITY);
-    set_led_pattern(LEDS_GREEN, 0b1, 0);
     LOG_INFO("is_moving = %d, read movement of %d Gs\n", is_moving, mov);
     
     int moving_rn = mov >= T_MOD || ABS(mov - old_movement) >= T_DMOD;
     old_movement = mov;
     #else
+    LOG_INFO("is_moving = 0, read raw movement of %d Gs\n", raw_mov);
     int moving_rn = 0;
     #endif
+    
+    clock_time_t next_wake;
     
     if(!is_moving && moving_rn) {
       LOG_INFO("User started moving.\n");
@@ -311,7 +315,7 @@ PROCESS_THREAD(movement_monitor_process, ev, data)
       next_wake = MOVEMENT_PERIOD;
       
     }
-    etimer_set(&acc_timer, next_wake);
+    etimer_reset_with_new_interval(&acc_timer, next_wake);
   }
   
   PROCESS_END();
