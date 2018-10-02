@@ -1,4 +1,4 @@
-\documentclass[a4paper, 11pt]{article}
+\documentclass[a4paper, 10pt]{article}
 \usepackage{comment} % enables the use of multi-line comments (\ifx \fi) 
 \usepackage{lipsum} %This package just generates Lorem Ipsum filler text. 
 \usepackage{fullpage} % changes the margin
@@ -79,11 +79,30 @@ With TSCH, the duty cycling mechanism is handled transparently underneath RPL, m
 Instead, when manual duty cycling is enabled in CSMA mode, the radio is kept on only for the duration of time needed to  connect to the MQTT broker and send a single message, then it is turned  off immediately.
 Moreover, to avoid excessive power consumption for small values of K, when manual duty cycling is on, K is effectively increased by the amount of  time needed to connect to the RPL network after the radio is turned on.
 
-\textcolor{red}{TODO: add images to compare the methods (nothing, tsch and manual duty cycling...moving vs standing or not?)}
+Table~\ref{table:energest} shows some test results for the two modes.
+Each test was runned on the board for 10 minutes, by forcing the sensor to consider a moving or motionless user.
+It can be seen that manual duty cycling over CSMA (DutyCycling) has the lowest possible power draw while the user is moving, and is low also while motionless, as it drastically reduces the CPU activity.
+On the other hand, TSCH has a lower energy consumption while motionless, but it keeps the CPU active for longer periods, to check the radio state transparently and not manually.
 
-\section*{Attachments}
+
+\begin{table}[!htb]
+\begin{tabular}{ll|ccc|cc|c}
+& & \multicolumn{3}{c|}{ \textbf{CPU Mode (s)} } & \multicolumn{2}{c|}{ \textbf{Radio (s)} } & \\
+\textbf{MAC} & \textbf{Action} & \textbf{Active} & \textbf{Sleep} & \textbf{Deep Sleep} & \textbf{Listening} & \textbf{Transmit} & \textbf{Energy (J)} \\
+CSMA & Motionless & 1 & 2 & 596 & 0 & 0 & 0.05 \\
+CSMA & Moving & 13 & 581 & 5 & 592 & 2 & 11.59 \\
+CSMA & DutyCycling & 13 & 273 & 312 & 280 & 3 & 5.58 \\
+TSCH & Moving & 174 & 24 & 401 & 163 & 0 & 8.39 \\
+TSCH & Standing & 157 & 28 & 414 & 53 & 3 & 2.43 \\
+TSCH & StandNoLed & 209 & 22 & 367 & 107 & 2 & 3.81 \\
+\end{tabular}
+\caption{Energest test data}
+\label{table:energest}
+\end{table}
+
+%\section*{Attachments}
 %Make sure to change these
-Lab Notes, HelloWorld.ic, FooBar.ic
+%Lab Notes, HelloWorld.ic, FooBar.ic
 %\fi %comment me out
 
 
