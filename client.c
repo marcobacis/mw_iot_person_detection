@@ -72,6 +72,7 @@ static char pub_topic_cache[MQTT_MAX_TOPIC_LENGTH] = "";
 
 /** The current MQTT connection. */
 static struct mqtt_connection conn;
+static int mqtt_disconn_received;
 
 
 /** Formats a IPv6 address into a string buffer.
@@ -179,6 +180,7 @@ static void mqtt_event(struct mqtt_connection *m, mqtt_event_t event, void *data
     
     case MQTT_EVENT_DISCONNECTED: 
       LOG_INFO("MQTT Disconnect: reason %u\n", *((mqtt_event_t *)data));
+      mqtt_disconn_received = 1;
       process_post(&client_process, mqtt_did_disconnect, NULL);
       break;
     
@@ -441,12 +443,12 @@ PROCESS_THREAD(client_process, ev, data)
         mqtt_state = MQTT_STATE_WAIT_MQTT;
 
       case MQTT_STATE_WAIT_MQTT:
-        if (ev == mqtt_did_connect) {
+        if (ev == mqtt_did_connect || mqtt_connected(&conn)) {
           LOG_INFO("Connected!\n");
           mqtt_fake_disconnect = 0;
           mqtt_state = MQTT_STATE_CONNECTED_PUBLISH;
           update_pub_topic();
-        } else if (ev == mqtt_did_disconnect) {
+        } else if (mqtt_disconn_received) {
           mqtt_state = MQTT_STATE_WAIT_IP;
         }
         break;
@@ -495,7 +497,7 @@ PROCESS_THREAD(client_process, ev, data)
     
     if (mqtt_state == MQTT_STATE_CONNECTED_PUBLISH || 
         mqtt_state == MQTT_STATE_CONNECTED_WAIT_PUBLISH) {
-      if (ev == mqtt_did_disconnect || !rpl_is_reachable_2()) {
+      if (mqtt_disconn_received || !rpl_is_reachable_2()) {
         LOG_INFO("MQTT disconnected...\n");
         mqtt_state = MQTT_STATE_WAIT_IP;
       }
@@ -530,7 +532,11 @@ PROCESS_THREAD(client_process, ev, data)
         set_led_pattern(LEDS_RED, 0b000000010001, 12);
         LOG_INFO("We have an IP; connection attempt to MQTT\n");
 
-        mqtt_connect(&conn, MQTT_BROKER_IP_ADDR, MQTT_BROKER_PORT, K * 3);
+        mqtt_disconn_received = 0;
+        mqtt_status_t stat;
+        stat = mqtt_connect(&conn, MQTT_BROKER_IP_ADDR, MQTT_BROKER_PORT, K * 3);
+        if (stat != MQTT_STATUS_OK)
+          mqtt_disconn_received = 1;
         break;
         
       case MQTT_STATE_WAIT_MQTT:
