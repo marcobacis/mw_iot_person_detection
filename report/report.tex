@@ -31,7 +31,7 @@ Finally, the client application must contain parameters for the movement thresho
 \end{figure}
 
 The main sensor thread (client\_process) integrates a Finite State Machine (FSM) to manage the mqtt connection based on the reachability of a IP network and the user movements.
-The FSM process is event-driven (being a contiki protothread), but also has a default timer of one second when waiting for long events (such as connections and disconnections).
+The FSM process is event-driven (being a contiki protothread), but it also has a default timer of one second when waiting for long events (such as connections and disconnections).
 The FSM can be seen in Figure~\ref{fig:sensor_fsm}, which highlights the states and relevant transitions.
 The source and sink state is IDLE, in which the sensor doesn't perform any action apart from waiting for the user to stop moving.
 
@@ -59,7 +59,7 @@ The accelerator data and the detected movement is shown in Figure~\ref{fig:accel
 
 The movement threshold T is applied to the absolute value of the acceleration module minus the gravity acceleration module, so it was estimated by trying to match the estimated movements with the real ones. We estimated $T = 1000$ roughly. Also, a second threshold T\_DMOD is applied to the difference between the current and last modules, and has been set to half the general treshold. 
 
-The reading timeout G is a environment and use-case dependent factor, as it depends on the place in which the system is deployed and which activities the users are usually doing.
+The reading timeout G is an environment and use-case dependent factor, as it depends on the place in which the system is deployed and which activities the users are usually doing.
 Different measures can be used to estimate its value.
 The measure of G impacts on the resolution of the system (not counting disconnections when moving too far from the router), so it must be a lower bound based on some experimental data gathered from the environment.
 In our case, we used a \emph{smooth} representation of the acceleration data to obtain the movements (without counting micromovements in the same room).
@@ -70,7 +70,7 @@ In this way, G lasts less than $84,1$\% of the movement periods, and at least on
 \subsection*{Energy Consumption minimization}
 In order to reduce the energy consumption of the device, two features were added to the client code, one for acceleration readings and the other for the network connection.
 
-As for the data movement reading, the movement sesor (MPU 9250) is activated only when necessary (only while reading). 
+As for the data movement reading, the movement sensor (MPU 9250) is activated only when necessary (only while reading). 
 
 The network connections impacts heavily on the client energy consumption. To reduce this, two options can be configured in the client code: TSCH or manual CSMA duty cycling.
 
