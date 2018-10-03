@@ -43,3 +43,8 @@ tests/[0-9][0-9]-*/org/
 *.sublime-*
 doc
 *.dvi
+
+*.pdf
+*.aux
+*.synctex.gz
+report.tex.bak
