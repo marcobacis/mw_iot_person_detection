@@ -406,8 +406,10 @@ PROCESS_THREAD(client_process, ev, data)
   conn.auto_reconnect = 0;
   
   /* Turn off MAC and radio for consistency with initial state = moving */
+  #ifndef MAC_CONF_WITH_TSCH
   NETSTACK_MAC.off();
   NETSTACK_RADIO.off();
+  #endif
 
   etimer_set(&timer, STATE_MACHINE_PERIODIC);
   
@@ -526,9 +528,10 @@ PROCESS_THREAD(client_process, ev, data)
          * are back up, so we disassociate manually */
         if (tsch_is_associated)
           tsch_disassociate();
-        #endif
+        #else
         NETSTACK_RADIO.on();
         NETSTACK_MAC.on();
+        #endif
         NETSTACK_RADIO.set_value(RADIO_PARAM_TXPOWER, CLIENT_RADIO_POWER_CONF);
         etimer_set(&timer, STATE_MACHINE_PERIODIC);
         break;
@@ -590,8 +593,10 @@ PROCESS_THREAD(client_process, ev, data)
       case MQTT_STATE_DISCONNECT_3:
         LOG_INFO("Shutting down radio\n");
         rpl_dag_leave();
+        #ifndef MAC_CONF_WITH_TSCH
         NETSTACK_MAC.off();
         NETSTACK_RADIO.off();
+        #endif
         /* TSCH-only issue: turning off MAC does not work for TSCH.
          * If TSCH is still in scanning mode, then we are *wasting power* and
          * we can do nothing about it because the TSCH stack is poorly written
